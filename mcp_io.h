@@ -7,11 +7,6 @@
 #include <mutex>
 #include <utility>
 
-enum class MCPHook {
-  OnServerInit,
-  OnToolDiscovery,
-};
-
 class MCPIO {
   private:
   using json  = nlohmann::json;
