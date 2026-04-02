@@ -1,4 +1,4 @@
-function(LinkLua src target components)
+function(LinkLua src target components) # TODO: LuaJIT support?
   set(source_list
     ${src}/lapi.c
     ${src}/lauxlib.c
@@ -33,10 +33,12 @@ function(LinkLua src target components)
   endif()
 
   if(EXISTS "${src}/lutf8lib.c")
+    target_compile_definitions(${target} PUBLIC LUA_CMAKE_HAS_UTF8)
     list(APPEND source_list "${src}/lutf8lib.c")
   endif()
 
   if(EXISTS "${src}/lcorolib.c")
+    target_compile_definitions(${target} PUBLIC LUA_CMAKE_HAS_CORO)
     list(APPEND source_list "${src}/lcorolib.c")
   endif()
 

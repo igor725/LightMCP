@@ -70,11 +70,11 @@ int main() {
               {"", luaopen_base},
 #endif
 
-#if LUA_VERSION_NUM > 502
+#ifdef LUA_CMAKE_HAS_CORO
               {LUA_COLIBNAME, luaopen_coroutine},
 #endif
 
-#ifdef LUA_UTF8LIBNAME
+#ifdef LUA_CMAKE_HAS_UTF8
               {LUA_UTF8LIBNAME, luaopen_utf8},
 #endif
 
