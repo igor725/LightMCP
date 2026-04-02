@@ -68,7 +68,8 @@ int main() {
 
         auto const makeError = [](std::string const& str) { return std::make_pair<bool, nlohmann::json>(false, {{{"type", "text"}, {"text", str}}}); };
 
-        uint32_t    vmState = eNone;
+        uint32_t    vmState  = eNone;
+        uint32_t    nResults = 1;
         std::string outString;
         lua_State*  L;
 
@@ -155,27 +156,33 @@ int main() {
           });
           lua_setglobal(L, "print");
 
+          int32_t const preCall = lua_gettop(L);
           if (auto const loadErr = luaL_loadstring(L, code->get_ref<std::string const&>().c_str()); loadErr == 0) {
             vmState |= eCodeCompiled;
 
-            if (auto const execError = lua_pcall(L, 0, 1, 0); execError == 0) {
+            if (auto const execError = lua_pcall(L, 0, LUA_MULTRET, 0); execError == 0) {
               vmState |= eCodeExecuted;
+              nResults = lua_gettop(L) - preCall;
             }
           }
         }
 
         if ((vmState & eRequestParsed) == 0) return makeError("Missing `code` block!");
         if ((vmState & eInitialized) == 0) return makeError("Failed to intialize LuaVM!");
-        if (!lua_isnoneornil(L, -1)) {
+        if ((nResults == 1 && !lua_isnoneornil(L, -1)) || nResults > 1) {
+          for (int32_t i = 1; i <= nResults; ++i) {
 #if LUA_VERSION_NUM < 502
-          lua_getglobal(L, "tostring");
-          lua_pushvalue(L, -2);
-          lua_call(L, 1, 1);
+            lua_getglobal(L, "tostring");
+            lua_pushvalue(L, i);
+            lua_call(L, 1, 1);
 #else
-          luaL_tolstring(L, -1, nullptr);
+            luaL_tolstring(L, i, nullptr);
 #endif
-          outString.push_back('\n');
-          outString.append(lua_tostring(L, -1));
+            if (i > 1) outString.push_back('\t');
+            outString.append(lua_tostring(L, -1));
+            lua_pop(L, 1);
+          }
+          if (!outString.empty() && !outString.ends_with('\n')) outString.push_back('\n');
         } else if (outString.empty()) {
           outString = "Code execution succeeded with no returned values";
         }

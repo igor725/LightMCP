@@ -24,6 +24,7 @@ class MCPIO {
   std::list<Tool> Tools = {};
 
   void sendResponse(std::optional<uint64_t> req_id, json const& resp) const;
+  void sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string const& err) const;
   void sendError(std::optional<uint64_t> req_id, std::string const& err) const;
   void sendNotification(std::string const& noti) const;
 

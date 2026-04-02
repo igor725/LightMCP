@@ -4,13 +4,25 @@
 #include <string>
 
 void MCPIO::sendResponse(std::optional<uint64_t> req_id, nlohmann::json const& resp) const {
-  if (!Initialized) return;
+  if (!Initialized || !std::cout.good()) return;
 
   std::cout << nlohmann::json({
                    {"jsonrpc", "2.0"},
                    {"id", req_id},
                    {"result", resp},
                })
+            << std::endl;
+}
+
+void MCPIO::sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string const& err) const {
+  if (!Initialized || !std::cout.good() || !req_id.has_value()) return;
+
+  std::cout << nlohmann::json {{"jsonrpc", "2.0"},
+                               {"id", *req_id},
+                               {
+                                   "error",
+                                   {{"code", code}, {"message", err}},
+                               }}
             << std::endl;
 }
 
@@ -22,7 +34,7 @@ void MCPIO::sendError(std::optional<uint64_t> req_id, std::string const& err) co
 }
 
 void MCPIO::sendNotification(std::string const& noti) const {
-  if (!Initialized) return;
+  if (!Initialized || !std::cout.good()) return;
   // TODO: `noti` name check
 
   std::cout << nlohmann::json({
@@ -51,7 +63,7 @@ bool MCPIO::registerTool(nlohmann::json const& toolDesc, std::function<std::pair
   if (name.empty() || name.length() > 128) return false;
   if (!std::ranges::all_of(name, [](char c) { return std::isalnum(c) || c == '_' || c == '-' || c == '.'; })) return false;
 
-  if (findTool(toolDesc["name"]) != Tools.end()) return false; // Duplicate check
+  if (findTool(name) != Tools.end()) return false; // Duplicate check
 
   // TODO: more checks
 
@@ -73,77 +85,89 @@ bool MCPIO::unregisterTool(std::string const& name) {
 }
 
 bool MCPIO::makeStep(std::string const& input) {
+  if (input.empty() || !input.starts_with('{')) return false;
+
   std::lock_guard const lock(Mutex);
 
-  auto const request = nlohmann::json::parse(input);
+  try {
+    auto const request = nlohmann::json::parse(input);
 
-  if (!request.is_object()) {
-    std::cerr << "Incorrect MCP request" << std::endl;
-    return true;
-  }
-
-  if (auto const jmeth = request["method"]; jmeth.is_string()) {
-    auto const respId = request.contains("id") ? request["id"].get<uint64_t>() : std::make_optional<uint64_t>();
-
-    if (jmeth == "initialize") {
-      auto const init = nlohmann::json({
-          {"protocolVersion", "2025-06-18"},
-          {"capabilities", {{"tools", {{"listChanged", true}}}}},
-          {"serverInfo",
-           {
-               {"name", "LightMCP"},
-               {"title", "Lightweight MCP server written in C++"},
-               {"version", "1.0.0"},
-           }},
-      });
-
-      Initialized = true;
-      sendResponse(respId, init);
-    } else if (jmeth == "tools/list") {
-      auto toolsList = nlohmann::json::array();
-
-      for (auto const& tool: Tools) {
-        toolsList.push_back(tool.Info);
-      }
-
-      sendResponse(respId, {{"tools", std::move(toolsList)}});
-    } else if (jmeth == "tools/call") {
-      if (auto pit = request.find("params"); pit != request.end()) {
-        if (auto nit = pit->find("name"), ait = pit->find("arguments"); nit != pit->end() || ait != pit->end()) {
-          auto const tool = findTool(nit->get_ref<std::string const&>());
-          if (tool == Tools.end()) {
-            sendError(respId, "LightMCP panic: Unknown tool");
-            return true;
-          }
-
-          auto const toolResult = tool->Callback(*ait);
-
-          if (!toolResult.second.is_array()) {
-            sendError(respId, "LightMCP panic: Tool response is not an array");
-            return true;
-          }
-
-          sendResponse(respId, {
-                                   {"content", std::move(toolResult.second)},
-                                   {"isError", toolResult.first},
-                               });
-        } else {
-          sendError(respId, "LightMCP panic: Invalid params");
-          return true;
-        }
-      } else {
-        sendError(respId, "LightMCP panic: Missing params");
-        return true;
-      }
-    } else if (jmeth.get_ref<std::string const&>().starts_with("notifications/")) {
-      // TODO handle notifications?
-    } else if (respId.has_value()) {
-      sendError(respId, "LightMCP panic: Unhandled MCP method");
+    if (!request.is_object()) {
+      std::cerr << "Incorrect MCP request" << std::endl;
       return true;
     }
-  } else {
-    std::cerr << "LightMCP panic: Invalid request: " << input << std::endl;
-    return false;
+
+    auto const respId = request.contains("id") ? request["id"].get<uint64_t>() : std::make_optional<uint64_t>();
+    if (auto const jmeth = request["method"]; jmeth.is_string()) {
+      if (jmeth == "initialize") {
+        auto const init = nlohmann::json({
+            {"protocolVersion", "2025-06-18"},
+            {"capabilities", {{"tools", {{"listChanged", true}}}}},
+            {"serverInfo",
+             {
+                 {"name", "LightMCP"},
+                 {"title", "Lightweight MCP server written in C++"},
+                 {"version", "1.0.0"},
+             }},
+        });
+
+        Initialized = true;
+        sendResponse(respId, init);
+      } else if (jmeth == "tools/list") {
+        auto toolsList = nlohmann::json::array();
+
+        for (auto const& tool: Tools) {
+          toolsList.push_back(tool.Info);
+        }
+
+        sendResponse(respId, {{"tools", std::move(toolsList)}});
+      } else if (jmeth == "tools/call") {
+        if (auto pit = request.find("params"); pit != request.end() && pit->is_object()) {
+          if (auto nit = pit->find("name"), ait = pit->find("arguments"); nit != pit->end() && ait != pit->end()) {
+            auto const toolName = nit->get_ref<std::string const&>();
+            auto const tool     = findTool(toolName);
+            if (tool == Tools.end()) {
+              sendProtocolError(respId, -32601, "Unknown tool: " + toolName);
+              return true;
+            }
+
+            try {
+              auto const [isError, content] = tool->Callback(*ait);
+
+              if (!content.is_array()) {
+                sendError(respId, "Tool response is not an array");
+                return true;
+              }
+
+              sendResponse(respId, {
+                                       {"content", std::move(content)},
+                                       {"isError", isError},
+                                   });
+            } catch (std::exception const& ex) {
+              sendError(respId, "Tool exception: " + std::string(ex.what()));
+            }
+          } else {
+            sendProtocolError(respId, -32602, "Missing tool name or arguments object");
+            return true;
+          }
+        } else {
+          sendProtocolError(respId, -32602, "Invalid params");
+          return true;
+        }
+      } else if (auto const& noti = jmeth.get_ref<std::string const&>(); noti.starts_with("notifications/")) {
+        std::cerr << ">> Notification received from client: " << noti << std::endl;
+        // TODO handle notifications?
+      } else if (respId.has_value()) {
+        sendError(respId, "LightMCP panic: Unhandled MCP method");
+        return true;
+      }
+    } else {
+      sendProtocolError(respId, -3333, "No method specified in the request: " + input);
+      return false;
+    }
+  } catch (nlohmann::json::parse_error const& ex) {
+    std::cerr << "JSON parsing error: " + input << std::endl;
+    return true;
   }
 
   return true;
@@ -154,6 +178,7 @@ void MCPIO::startLoop() {
 
   std::string line;
 
+  std::setvbuf(stdout, nullptr, _IONBF, 0);
   while (std::getline(std::cin, line)) {
     if (!makeStep(line)) break;
   }
