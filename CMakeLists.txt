@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 4.1)
 
 include(FetchContent)
-include(lua.cmake)
 
 project(LightMCP VERSION 1.0 LANGUAGES CXX C)
+
+option(LCMP_UNSAFE "Enable unsafe Lua functionality for MCP server" FALSE)
 
 set(CMAKE_CXX_STANDARD 23)
 
@@ -12,4 +13,18 @@ add_executable(LightMCP
   mcp_io.cpp
 )
 
-LinkLua("D:/lua-5.1.5/src" LightMCP "")
+find_package(Lua 5.1 REQUIRED)
+
+if(Lua_FOUND AND NOT TARGET Lua::Lua)
+  add_library(Lua::Lua INTERFACE IMPORTED)
+  set_target_properties(
+    Lua::Lua
+    PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${LUA_INCLUDE_DIR}"
+    INTERFACE_LINK_LIBRARIES "${LUA_LIBRARIES}"
+  )
+endif()
+
+target_link_libraries(LightMCP PUBLIC Lua::Lua)
+
+target_compile_definitions(LightMCP PUBLIC $<$<BOOL:${LCMP_UNSAFE}>:LCMP_UNSAFE>)

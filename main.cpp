@@ -12,9 +12,9 @@ extern "C" {
 }
 
 int main() {
-  std::cerr << "Starting a MCP server" << std::endl;
-
   std::srand(std::time(nullptr));
+
+  std::cerr << "Starting a MCP server" << std::endl;
 
   MCPIO server;
 
@@ -37,7 +37,7 @@ int main() {
           {"name", "run_lua"},
           {"title", "Lua script interpreter"},
           {"description", "This tool executes arbitrary Lua code in a user environment, ideal for math computations and string operations. "
-#ifndef LUA_CMAKE_UNSAFE
+#ifndef LCMP_UNSAFE
                           "For security, `os` and `io` modules are disabled to prevent system damage. "
 #else
                           "OS-level operations like `os.execute`, `io.open`, ... are available too. "
@@ -70,12 +70,24 @@ int main() {
               {"", luaopen_base},
 #endif
 
-#ifdef LUA_CMAKE_HAS_CORO
+#if LUA_VERSION_NUM > 502
               {LUA_COLIBNAME, luaopen_coroutine},
 #endif
 
-#ifdef LUA_CMAKE_HAS_UTF8
+#ifdef LUA_UTF8LIBNAME
               {LUA_UTF8LIBNAME, luaopen_utf8},
+#endif
+
+#ifdef LUA_JITLIBNAME
+              {LUA_JITLIBNAME, luaopen_jit},
+#endif
+
+#ifdef LCMP_UNSAFE
+              {LUA_OSLIBNAME, luaopen_os},        {LUA_IOLIBNAME, luaopen_io},
+
+#ifdef LUA_FFILIBNAME
+              {LUA_FFILIBNAME, luaopen_ffi},
+#endif
 #endif
 
               {LUA_LOADLIBNAME, luaopen_package}, {LUA_TABLIBNAME, luaopen_table}, {LUA_STRLIBNAME, luaopen_string},
