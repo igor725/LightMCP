@@ -12,4 +12,4 @@ add_executable(LightMCP
   mcp_io.cpp
 )
 
-LinkLua("D:/lua-5.1.5/src" LightMCP "")
+LinkLua("D:/lua-5.5.0/src" LightMCP "")

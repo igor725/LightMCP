@@ -40,7 +40,7 @@ int main() {
 #ifndef LUA_CMAKE_UNSAFE
                           "For security, `os` and `io` modules are disabled to prevent system damage. "
 #else
-                          "System-level operations like `os.execute`, `io.open`, ... are available too. "
+                          "OS-level operations like `os.execute`, `io.open`, ... are available too. "
 #endif
                           "Example: `return _VERSION` outputs the Lua interpreter version. Note: tables cannot be printed directly - use a `for` loop with "
                           "`print` to iterate and display contents. Script runs internally via `lua_pcall`."},
@@ -64,13 +64,13 @@ int main() {
           auto L = luaL_newstate();
 
           static const luaL_Reg lualibs[] = {
-#if LUA_VERSION_NUM > 540
+#if LUA_VERSION_NUM > 504
               {LUA_GNAME, luaopen_base},
 #else
               {"", luaopen_base},
 #endif
 
-#if LUA_VERSION_NUM > 520
+#if LUA_VERSION_NUM > 502
               {LUA_COLIBNAME, luaopen_coroutine},
 #endif
 
@@ -96,6 +96,7 @@ int main() {
             auto _o = reinterpret_cast<std::string*>(lua_touserdata(L, -1));
             lua_pop(L, 1);
 
+#if LUA_VERSION_NUM < 502
             lua_getglobal(L, "tostring");
             for (int32_t i = 1; i <= nArg; ++i) {
               lua_pushvalue(L, -1);
@@ -105,6 +106,14 @@ int main() {
               _o->push_back('\t');
               lua_pop(L, 1);
             }
+#else
+            for (int32_t i = 1; i <= nArg; ++i) {
+              luaL_tolstring(L, i, nullptr);
+              _o->append(lua_tostring(L, -1));
+              _o->push_back('\t');
+              lua_pop(L, 1);
+            }
+#endif
             if (!_o->empty()) _o->back() = '\n';
 
             return 0;
@@ -114,9 +123,13 @@ int main() {
           if (auto const loadErr = luaL_loadstring(L, code->get_ref<std::string const&>().c_str()); loadErr == 0) {
             if (auto const execError = lua_pcall(L, 0, 1, 0); execError == 0) {
               if (!lua_isnoneornil(L, -1)) {
+#if LUA_VERSION_NUM < 502
                 lua_getglobal(L, "tostring");
                 lua_pushvalue(L, -2);
                 lua_call(L, 1, 1);
+#else
+                luaL_tolstring(L, -1, nullptr);
+#endif
                 outString.append(lua_tostring(L, -1));
               }
 
