@@ -18,19 +18,14 @@ int main() {
 
   MCPIO server;
 
-  // server.registerTool(
-  //     {
-  //         {"name", "get_random_integer"},
-  //         {"title", "Random Integer"},
-  //         {"description", "This tool returns a random integer value e.g. 0, 95, 322, 666. Value range is: [0, " TOSTR(RAND_MAX) "]."},
-  //         {"inputSchema", {{"type", "object"}, {"additionalProperties", false}}},
-  //     },
-  //     [](nlohmann::json const& req) -> nlohmann::json {
-  //       return {{
-  //           {"type", "text"},
-  //           {"text", std::to_string(std::rand())},
-  //       }};
-  //     });
+  server.registerTool(
+      {
+          {"name", "get_random_integer"},
+          {"title", "Random Integer"},
+          {"description", "This tool returns a random integer value e.g. 0, 95, 322, 666. Value range is: [0, " TOSTR(RAND_MAX) "]."},
+          {"inputSchema", {{"type", "object"}, {"additionalProperties", false}}},
+      },
+      [](nlohmann::json const& req) { return std::make_pair<bool, nlohmann::json>(true, {{{"type", "text"}, {"text", std::to_string(std::rand())}}}); });
 
   server.registerTool(
       {
@@ -57,7 +52,7 @@ int main() {
               },
           },
       },
-      [](nlohmann::json const& req) -> std::pair<bool, nlohmann::json> {
+      [](nlohmann::json const& req) {
         if (auto code = req.find("code"); code != req.end()) {
           std::string outString;
 
@@ -82,11 +77,18 @@ int main() {
               {LUA_MATHLIBNAME, luaopen_math},    {LUA_DBLIBNAME, luaopen_debug},  {NULL, NULL},
           };
 
+#if LUA_VERSION_NUM > 501
+          for (const luaL_Reg* lib = lualibs; lib->func; lib++) {
+            luaL_requiref(L, lib->name, lib->func, 1);
+            lua_pop(L, 1);
+          }
+#else
           for (const luaL_Reg* lib = lualibs; lib->func; lib++) {
             lua_pushcfunction(L, lib->func);
             lua_pushstring(L, lib->name);
             lua_call(L, 1, 0);
           }
+#endif
 
           lua_pushlightuserdata(L, &outString);
           lua_setfield(L, LUA_REGISTRYINDEX, "_cxxoutput");
