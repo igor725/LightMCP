@@ -4,7 +4,7 @@ include(FetchContent)
 
 project(LightMCP VERSION 1.0 LANGUAGES CXX C)
 
-option(LCMP_UNSAFE "Enable unsafe Lua functionality for MCP server" FALSE)
+option(LMCP_UNSAFE "Enable unsafe Lua functionality for MCP server" FALSE)
 
 set(CMAKE_CXX_STANDARD 23)
 
@@ -27,4 +27,4 @@ endif()
 
 target_link_libraries(LightMCP PUBLIC Lua::Lua)
 
-target_compile_definitions(LightMCP PUBLIC $<$<BOOL:${LCMP_UNSAFE}>:LCMP_UNSAFE>)
+target_compile_definitions(LightMCP PUBLIC $<$<BOOL:${LMCP_UNSAFE}>:LMCP_UNSAFE>)

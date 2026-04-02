@@ -37,7 +37,7 @@ int main() {
           {"name", "run_lua"},
           {"title", "Lua script interpreter"},
           {"description", "This tool executes arbitrary Lua code in a user environment, ideal for math computations and string operations. "
-#ifndef LCMP_UNSAFE
+#ifndef LMCP_UNSAFE
                           "For security, `os` and `io` modules are disabled to prevent system damage. "
 #else
                           "OS-level operations like `os.execute`, `io.open`, ... are available too. "
@@ -96,7 +96,7 @@ int main() {
               {LUA_JITLIBNAME, luaopen_jit},
 #endif
 
-#ifdef LCMP_UNSAFE
+#ifdef LMCP_UNSAFE
               {LUA_OSLIBNAME, luaopen_os},        {LUA_IOLIBNAME, luaopen_io},
 
 #ifdef LUA_FFILIBNAME
