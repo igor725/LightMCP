@@ -1,0 +1,20 @@
+{
+  "cmake.parallelJobs": 0,
+  "cmake.generator": "Ninja",
+  "cmake.sourceDirectory": "${workspaceFolder}",
+  "cmake.buildDirectory": "${workspaceFolder}/build",
+  "cmake.configureArgs": [],
+  "cmake.configureSettings": {
+    "CMAKE_INSTALL_PREFIX": "${workspaceFolder}/build",
+  },
+  "clangd.arguments": [
+    "--compile-commands-dir=./build",
+    "--header-insertion=never"
+  ],
+  "C_Cpp.intelliSenseEngine": "disabled",
+  "C_Cpp.autoAddFileAssociations": false,
+  "C_Cpp.formatting": "disabled",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+}
