@@ -58,10 +58,24 @@ int main() {
           },
       },
       [](nlohmann::json const& req) {
-        if (auto code = req.find("code"); code != req.end()) {
-          std::string outString;
+        enum VMState {
+          eNone,
+          eRequestParsed = 1 << 0,
+          eInitialized   = 1 << 1,
+          eCodeCompiled  = 1 << 2,
+          eCodeExecuted  = 1 << 3,
+        };
 
-          auto L = luaL_newstate();
+        auto const makeError = [](std::string const& str) { return std::make_pair<bool, nlohmann::json>(false, {{{"type", "text"}, {"text", str}}}); };
+
+        uint32_t    vmState = eNone;
+        std::string outString;
+        lua_State*  L;
+
+        if (auto code = req.find("code"); code != req.end()) {
+          vmState |= eRequestParsed;
+
+          L = luaL_newstate();
 
           static const luaL_Reg lualibs[] = {
 #if LUA_VERSION_NUM > 504
@@ -107,6 +121,8 @@ int main() {
           }
 #endif
 
+          vmState |= eInitialized;
+
           lua_pushlightuserdata(L, &outString);
           lua_setfield(L, LUA_REGISTRYINDEX, "_cxxoutput");
           lua_pushcfunction(L, [](lua_State* L) -> int32_t {
@@ -140,37 +156,34 @@ int main() {
           lua_setglobal(L, "print");
 
           if (auto const loadErr = luaL_loadstring(L, code->get_ref<std::string const&>().c_str()); loadErr == 0) {
+            vmState |= eCodeCompiled;
+
             if (auto const execError = lua_pcall(L, 0, 1, 0); execError == 0) {
-              if (!lua_isnoneornil(L, -1)) {
-#if LUA_VERSION_NUM < 502
-                lua_getglobal(L, "tostring");
-                lua_pushvalue(L, -2);
-                lua_call(L, 1, 1);
-#else
-                luaL_tolstring(L, -1, nullptr);
-#endif
-                outString.append(lua_tostring(L, -1));
-              }
-
-              lua_close(L);
-              return std::make_pair<bool, nlohmann::json>(true, {{{"type", "text"}, {"text", outString}}});
-            } else {
-              outString.push_back('\n');
-              outString.append(lua_tostring(L, -1));
-              lua_close(L);
-              return std::make_pair<bool, nlohmann::json>(false, {{{"type", "text"}, {"text", "Failed to execute `code` block!\n" + outString}}});
+              vmState |= eCodeExecuted;
             }
-          } else {
-            outString.push_back('\n');
-            outString.append(lua_tostring(L, -1));
-            lua_close(L);
-            return std::make_pair<bool, nlohmann::json>(false, {{{"type", "text"}, {"text", "Failed to compile `code` block!\n" + outString}}});
           }
-
-          lua_close(L);
         }
 
-        return std::make_pair<bool, nlohmann::json>(false, {{{"type", "text"}, {"text", "Missing `code` block!"}}});
+        if ((vmState & eRequestParsed) == 0) return makeError("Missing `code` block!");
+        if ((vmState & eInitialized) == 0) return makeError("Failed to intialize LuaVM!");
+        if (!lua_isnoneornil(L, -1)) {
+#if LUA_VERSION_NUM < 502
+          lua_getglobal(L, "tostring");
+          lua_pushvalue(L, -2);
+          lua_call(L, 1, 1);
+#else
+          luaL_tolstring(L, -1, nullptr);
+#endif
+          outString.push_back('\n');
+          outString.append(lua_tostring(L, -1));
+        } else if (outString.empty()) {
+          outString = "Code execution succeeded with no returned values";
+        }
+        lua_close(L);
+
+        if ((vmState & eCodeCompiled) == 0) return makeError("Failed to compile `code` block!\n" + outString);
+        if ((vmState & eCodeExecuted) == 0) return makeError("Failed to execute `code` block!\n" + outString);
+        return std::make_pair<bool, nlohmann::json>(true, {{{"type", "text"}, {"text", outString}}});
       });
 
   server.startLoop();
