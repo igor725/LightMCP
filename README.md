@@ -6,7 +6,6 @@ The example executable contains two tools:
 * Random number generation
 
 > [!WARNING]  
-> It is up to user to provide sandboxed Lua interpreter without harmful functionality.
-> Using stock interpreter with untouched `os`, `io`, `ffi` libraries may lead to
-> malicious code execution by an AI model! Every script AI writes should be
-> approved by user first.
+> It is up to user to provide sandboxed Lua interpreter without potentially harmful functionality.
+> Using stock interpreter with untouched `os`, `io`, `ffi` libraries may lead to malicious code
+> execution by an AI model! Every script AI writes should be approved by user first.
