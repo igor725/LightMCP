@@ -12,11 +12,8 @@ enum class MCPHook {
 };
 
 class MCPIO {
-  using json = nlohmann::json;
-
   private:
-  void sendResponse(std::optional<uint64_t> req_id, json const& resp) const;
-  void sendNotification(std::string const& noti) const;
+  using json = nlohmann::json;
 
   struct Tool {
     json const Info;
@@ -29,6 +26,18 @@ class MCPIO {
   std::mutex Mutex;
 
   std::list<Tool> Tools = {};
+
+  void sendResponse(std::optional<uint64_t> req_id, json const& resp) const;
+  void sendNotification(std::string const& noti) const;
+
+  auto findTool(std::string const& toolName) {
+    auto it = Tools.begin();
+    for (; it != Tools.end(); ++it) {
+      if (it->Info["name"] == toolName) break;
+    }
+
+    return it;
+  }
 
   bool makeStep(std::string const& input);
 

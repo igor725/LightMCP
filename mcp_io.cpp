@@ -44,9 +44,7 @@ bool MCPIO::registerTool(nlohmann::json const& toolDesc, std::function<json(json
   if (name.empty() || name.length() > 128) return false;
   if (!std::ranges::all_of(name, [](char c) { return std::isalnum(c) || c == '_' || c == '-' || c == '.'; })) return false;
 
-  for (auto const& tool: Tools) {
-    if (tool.Info["name"] == toolDesc["name"]) return false;
-  }
+  if (findTool(toolDesc["name"]) != Tools.end()) return false; // Duplicate check
 
   // TODO: more checks
 
@@ -58,12 +56,10 @@ bool MCPIO::registerTool(nlohmann::json const& toolDesc, std::function<json(json
 bool MCPIO::unregisterTool(std::string const& name) {
   std::lock_guard const lock(Mutex);
 
-  for (auto it = Tools.begin(); it != Tools.end(); ++it) {
-    if (it->Info["name"] == name) {
-      Tools.erase(it);
-      sendNotification("tools/list_changed");
-      return true;
-    }
+  if (auto it = findTool(name); it != Tools.end()) {
+    Tools.erase(it);
+    sendNotification("tools/list_changed");
+    return true;
   }
 
   return false;
@@ -105,23 +101,43 @@ bool MCPIO::makeStep(std::string const& input) {
 
       sendResponse(respId, {{"tools", std::move(toolsList)}});
     } else if (jmeth == "tools/call") {
-      auto const toolResult = Tools.begin()->Callback(request);
-      if (!toolResult.is_array()) {
-        std::cerr << "MCP Panic: Tool response is not an array!" << std::endl;
+      if (auto pit = request.find("params"); pit != request.end()) {
+        if (auto nit = pit->find("name"), ait = pit->find("arguments"); nit != pit->end() || ait != pit->end()) {
+          auto const tool = findTool(nit->get_ref<std::string const&>());
+          if (tool == Tools.end()) {
+            // TODO: Handle unknown tool call
+            std::cerr << "LMCP Panic: Unknown tool!" << std::endl;
+            return false;
+          }
+
+          auto const toolResult = tool->Callback(*ait);
+
+          if (!toolResult.is_array()) {
+            std::cerr << "LMCP Panic: Tool response is not an array: " << toolResult << std::endl;
+            return false;
+          }
+
+          sendResponse(respId, {{
+                                   "content",
+                                   std::move(toolResult),
+                               }});
+        } else {
+          std::cerr << "LMCP Panic: Invalid params: " << *pit << std::endl;
+          return false;
+        }
+      } else {
+        std::cerr << "LMCP Panic: Missing params: " << input << std::endl;
         return false;
       }
-
-      sendResponse(respId, {{
-                               "content",
-                               std::move(toolResult),
-                           }});
     } else if (jmeth.get_ref<std::string const&>().starts_with("notifications/")) {
       // TODO handle notifications?
     } else {
-      std::cerr << "Unknown method: " << jmeth << std::endl;
+      std::cerr << "LMCP Panic: Unknown method: " << jmeth << std::endl;
+      return false;
     }
   } else {
-    std::cerr << "Invalid request: " << input << std::endl;
+    std::cerr << "LMCP Panic: Invalid request: " << input << std::endl;
+    return false;
   }
 
   return true;
