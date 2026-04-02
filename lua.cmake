@@ -28,8 +28,20 @@ function(LinkLua src target components)
     ${src}/lzio.c
   )
 
+  if(EXISTS "${src}/lctype.c")
+    list(APPEND source_list "${src}/lctype.c")
+  endif()
+
+  if(EXISTS "${src}/lutf8lib.c")
+    list(APPEND source_list "${src}/lutf8lib.c")
+  endif()
+
+  if(EXISTS "${src}/lcorolib.c")
+    list(APPEND source_list "${src}/lcorolib.c")
+  endif()
+
   if("unsafe" IN_LIST components)
-    target_compile_definitions(${target} PRIVATE LUA_CMAKE_UNSAFE)
+    target_compile_definitions(${target} PUBLIC LUA_CMAKE_UNSAFE)
     list(APPEND source_list "${src}/loslib.c;${src}/liolib.c")
   endif()
 

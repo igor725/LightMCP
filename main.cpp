@@ -35,9 +35,15 @@ int main() {
   server.registerTool(
       {
           {"name", "run_lua"},
-          {"title", "Execute Lua script"},
-          {"description",
-           "This tool executes specified Lua code in user environment. For example: `return _VERSION` will output the current Lua interpreter version."},
+          {"title", "Lua script interpreter"},
+          {"description", "This tool executes arbitrary Lua code in a user environment, ideal for math computations and string operations. "
+#ifndef LUA_CMAKE_UNSAFE
+                          "For security, `os` and `io` modules are disabled to prevent system damage. "
+#else
+                          "System-level operations like `os.execute`, `io.open`, ... are available too. "
+#endif
+                          "Example: `return _VERSION` outputs the Lua interpreter version. Note: tables cannot be printed directly - use a `for` loop with "
+                          "`print` to iterate and display contents. Script runs internally via `lua_pcall`."},
           {
               "inputSchema",
               {
@@ -51,20 +57,29 @@ int main() {
               },
           },
       },
-      [](nlohmann::json const& req) -> nlohmann::json {
+      [](nlohmann::json const& req) -> std::pair<bool, nlohmann::json> {
         if (auto code = req.find("code"); code != req.end()) {
-          std::string outString = "Output: ";
+          std::string outString;
 
           auto L = luaL_newstate();
 
           static const luaL_Reg lualibs[] = {
+#if LUA_VERSION_NUM > 540
+              {LUA_GNAME, luaopen_base},
+#else
               {"", luaopen_base},
-              {LUA_LOADLIBNAME, luaopen_package},
-              {LUA_TABLIBNAME, luaopen_table},
-              {LUA_STRLIBNAME, luaopen_string},
-              {LUA_MATHLIBNAME, luaopen_math},
-              {LUA_DBLIBNAME, luaopen_debug},
-              {NULL, NULL},
+#endif
+
+#if LUA_VERSION_NUM > 520
+              {LUA_COLIBNAME, luaopen_coroutine},
+#endif
+
+#ifdef LUA_UTF8LIBNAME
+              {LUA_UTF8LIBNAME, luaopen_utf8},
+#endif
+
+              {LUA_LOADLIBNAME, luaopen_package}, {LUA_TABLIBNAME, luaopen_table}, {LUA_STRLIBNAME, luaopen_string},
+              {LUA_MATHLIBNAME, luaopen_math},    {LUA_DBLIBNAME, luaopen_debug},  {NULL, NULL},
           };
 
           for (const luaL_Reg* lib = lualibs; lib->func; lib++) {
@@ -94,7 +109,7 @@ int main() {
 
             return 0;
           });
-          lua_setfield(L, LUA_GLOBALSINDEX, "print");
+          lua_setglobal(L, "print");
 
           if (auto const loadErr = luaL_loadstring(L, code->get_ref<std::string const&>().c_str()); loadErr == 0) {
             if (auto const execError = lua_pcall(L, 0, 1, 0); execError == 0) {
@@ -105,30 +120,25 @@ int main() {
                 outString.append(lua_tostring(L, -1));
               }
 
-              lua_pop(L, 2);
-
               lua_close(L);
-              return {{
-                  {"type", "text"},
-                  {"text", outString},
-              }};
+              return std::make_pair<bool, nlohmann::json>(true, {{{"type", "text"}, {"text", outString}}});
             } else {
               outString.push_back('\n');
               outString.append(lua_tostring(L, -1));
               lua_close(L);
-              return {{{"type", "text"}, {"text", "Error: Failed to execute `code` block!\n" + outString}}};
+              return std::make_pair<bool, nlohmann::json>(false, {{{"type", "text"}, {"text", "Failed to execute `code` block!\n" + outString}}});
             }
           } else {
             outString.push_back('\n');
             outString.append(lua_tostring(L, -1));
             lua_close(L);
-            return {{{"type", "text"}, {"text", "Error: Failed to compile `code` block!\n" + outString}}};
+            return std::make_pair<bool, nlohmann::json>(false, {{{"type", "text"}, {"text", "Failed to compile `code` block!\n" + outString}}});
           }
 
           lua_close(L);
         }
 
-        return {{{"type", "text"}, {"text", "Error: Missing `code` block!"}}};
+        return std::make_pair<bool, nlohmann::json>(false, {{{"type", "text"}, {"text", "Missing `code` block!"}}});
       });
 
   server.startLoop();

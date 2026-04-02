@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <list>
 #include <mutex>
+#include <utility>
 
 enum class MCPHook {
   OnServerInit,
@@ -13,12 +14,12 @@ enum class MCPHook {
 
 class MCPIO {
   private:
-  using json = nlohmann::json;
+  using json  = nlohmann::json;
+  using tcall = std::function<std::pair<bool, json>(json const& req)>;
 
   struct Tool {
-    json const Info;
-
-    std::function<json(json const& req)> const Callback;
+    json const  Info;
+    tcall const Callback;
   };
 
   bool Initialized = false;
@@ -28,6 +29,7 @@ class MCPIO {
   std::list<Tool> Tools = {};
 
   void sendResponse(std::optional<uint64_t> req_id, json const& resp) const;
+  void sendError(std::optional<uint64_t> req_id, std::string const& err) const;
   void sendNotification(std::string const& noti) const;
 
   auto findTool(std::string const& toolName) {
@@ -42,7 +44,7 @@ class MCPIO {
   bool makeStep(std::string const& input);
 
   public:
-  bool registerTool(json const& toolDesc, std::function<json(json const& req)> callback);
+  bool registerTool(json const& toolDesc, tcall callback);
   bool unregisterTool(std::string const& name);
 
   void startLoop();
