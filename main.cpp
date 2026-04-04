@@ -81,7 +81,7 @@ int main() {
                             {"description", "Every print call data."},
                         }},
                    }},
-                  {"required", nlohmann::json::array({"returned", "prints"})},
+                  {"required", nlohmann::json::array({"stage", "returned", "prints"})},
               },
           },
       },
