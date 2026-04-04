@@ -25,11 +25,13 @@ int main() {
           {"description", "This tool returns a random integer value e.g. 0, 95, 322, 666. Value range is: [0, " TOSTR(RAND_MAX) "]."},
           {"inputSchema", {{"type", "object"}, {"additionalProperties", false}}},
       },
-      [](nlohmann::json const& req) {
-        return std::make_pair<bool, nlohmann::json>(true, {{
-                                                              {"type", "text"},
-                                                              {"text", std::to_string(std::rand())},
-                                                          }});
+      [](nlohmann::json const& req, nlohmann::json& resp) {
+        resp = {{
+            {"type", "text"},
+            {"text", std::to_string(std::rand())},
+        }};
+        return true;
+      });
       });
 
   server.registerTool(
@@ -49,15 +51,19 @@ int main() {
               {
                   {"type", "object"},
                   {"properties",
-                   {{"code",
-                     {
-                         {"type", "string"},
-                         {"description", "Lua code to execute"},
-                     }}}},
+                   {
+                       {
+                           "code",
+                           {
+                               {"type", "string"},
+                               {"description", "Lua code to execute"},
+                           },
+                       },
+                   }},
               },
           },
       },
-      [](nlohmann::json const& req) {
+      [](nlohmann::json const& req, nlohmann::json& resp) -> bool {
         enum VMState {
           eNone,
           eRequestParsed = 1 << 0,
@@ -66,7 +72,10 @@ int main() {
           eCodeExecuted  = 1 << 3,
         };
 
-        auto const makeError = [](std::string const& str) { return std::make_pair<bool, nlohmann::json>(false, {{{"type", "text"}, {"text", str}}}); };
+        auto const makeError = [](nlohmann::json& resp, std::string const& str) {
+          resp = {{{"type", "text"}, {"text", str}}};
+          return false;
+        };
 
         uint32_t    vmState  = eNone;
         uint32_t    nResults = 1;
@@ -82,7 +91,7 @@ int main() {
 #if LUA_VERSION_NUM > 504
               {LUA_GNAME, luaopen_base},
 #else
-              {"", luaopen_base},
+                      {"", luaopen_base},
 #endif
 
 #if LUA_VERSION_NUM > 502
@@ -143,12 +152,12 @@ int main() {
               lua_pop(L, 1);
             }
 #else
-            for (int32_t i = 1; i <= nArg; ++i) {
-              luaL_tolstring(L, i, nullptr);
-              _o->append(lua_tostring(L, -1));
-              _o->push_back('\t');
-              lua_pop(L, 1);
-            }
+                  for (int32_t i = 1; i <= nArg; ++i) {
+                    luaL_tolstring(L, i, nullptr);
+                    _o->append(lua_tostring(L, -1));
+                    _o->push_back('\t');
+                    lua_pop(L, 1);
+                  }
 #endif
             if (!_o->empty()) _o->back() = '\n';
 
@@ -167,8 +176,8 @@ int main() {
           }
         }
 
-        if ((vmState & eRequestParsed) == 0) return makeError("Missing `code` block!");
-        if ((vmState & eInitialized) == 0) return makeError("Failed to intialize LuaVM!");
+        if ((vmState & eRequestParsed) == 0) return makeError(resp, "Missing `code` block!");
+        if ((vmState & eInitialized) == 0) return makeError(resp, "Failed to intialize LuaVM!");
         if ((nResults == 1 && !lua_isnoneornil(L, -1)) || nResults > 1) {
           for (int32_t i = 1; i <= nResults; ++i) {
 #if LUA_VERSION_NUM < 502
@@ -188,9 +197,10 @@ int main() {
         }
         lua_close(L);
 
-        if ((vmState & eCodeCompiled) == 0) return makeError("Failed to compile `code` block!\n" + outString);
-        if ((vmState & eCodeExecuted) == 0) return makeError("Failed to execute `code` block!\n" + outString);
-        return std::make_pair<bool, nlohmann::json>(true, {{{"type", "text"}, {"text", outString}}});
+        if ((vmState & eCodeCompiled) == 0) return makeError(resp, "Failed to compile `code` block!\n" + outString);
+        if ((vmState & eCodeExecuted) == 0) return makeError(resp, "Failed to execute `code` block!\n" + outString);
+        resp = {{{"type", "text"}, {"text", outString}}};
+        return true;
       });
 
   server.startLoop();

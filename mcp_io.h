@@ -5,12 +5,11 @@
 #include <cstdint>
 #include <list>
 #include <mutex>
-#include <utility>
 
 class MCPIO {
   private:
   using json  = nlohmann::json;
-  using tcall = std::function<std::pair<bool, json>(json const& req)>;
+  using tcall = std::function<bool(json const& req, json& resp)>;
 
   struct Tool {
     json const  Info;

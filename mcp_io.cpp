@@ -44,7 +44,7 @@ void MCPIO::sendNotification(std::string const& noti) const {
             << std::endl;
 }
 
-bool MCPIO::registerTool(nlohmann::json const& toolDesc, std::function<std::pair<bool, json>(json const& req)> callback) {
+bool MCPIO::registerTool(nlohmann::json const& toolDesc, std::function<bool(json const& req, json& resp)> callback) {
   std::lock_guard const lock(Mutex);
 
   if (!toolDesc.is_object()) return false;
@@ -132,7 +132,9 @@ bool MCPIO::makeStep(std::string const& input) {
             }
 
             try {
-              auto const [isError, content] = tool->Callback(*ait);
+              json content = nlohmann::json::array();
+
+              auto const isError = tool->Callback(*ait, content);
 
               if (!content.is_array()) {
                 sendError(respId, "Tool response is not an array");

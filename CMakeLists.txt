@@ -25,6 +25,6 @@ if(Lua_FOUND AND NOT TARGET Lua::Lua)
   )
 endif()
 
-target_link_libraries(LightMCP PUBLIC Lua::Lua)
+target_link_libraries(LightMCP PRIVATE Lua::Lua)
 
-target_compile_definitions(LightMCP PUBLIC $<$<BOOL:${LMCP_UNSAFE}>:LMCP_UNSAFE>)
+target_compile_definitions(LightMCP PRIVATE $<$<BOOL:${LMCP_UNSAFE}>:LMCP_UNSAFE>)
