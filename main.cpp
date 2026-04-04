@@ -26,10 +26,7 @@ int main() {
           {"inputSchema", {{"type", "object"}, {"additionalProperties", false}}},
       },
       [](nlohmann::json const& req, nlohmann::json& resp) {
-        resp = {{
-            {"type", "text"},
-            {"text", std::to_string(std::rand())},
-        }};
+        resp = std::to_string(std::rand());
         return true;
       });
 
@@ -59,6 +56,32 @@ int main() {
                            },
                        },
                    }},
+                  {"required", nlohmann::json::array({"code"})},
+              },
+          },
+          {
+              "outputSchema",
+              {
+                  {"type", "object"},
+                  {"properties",
+                   {
+                       {"stage",
+                        {
+                            {"type", "number"},
+                            {"description", "Code execution stage. Values: RequestParsed = 1, Initialized = 3, CodeCompiled = 7, CodeExcuted = 15"},
+                        }},
+                       {"returned",
+                        {
+                            {"type", "string"},
+                            {"description", "Values passed to top level `return` statement in the `code` block or error string."},
+                        }},
+                       {"prints",
+                        {
+                            {"type", "string"},
+                            {"description", "Every print call data."},
+                        }},
+                   }},
+                  {"required", nlohmann::json::array({"returned", "prints"})},
               },
           },
       },
@@ -69,22 +92,17 @@ int main() {
           eInitialized   = 1 << 1,
           eCodeCompiled  = 1 << 2,
           eCodeExecuted  = 1 << 3,
-        };
 
-        auto const makeError = [](nlohmann::json& resp, std::string const& str) {
-          resp = {{{"type", "text"}, {"text", str}}};
-          return false;
+          eComplete = eRequestParsed | eInitialized | eCodeCompiled | eCodeExecuted,
         };
 
         uint32_t    vmState  = eNone;
         uint32_t    nResults = 1;
-        std::string outString;
+        std::string retString, printString;
         lua_State*  L;
 
-        if (auto const code = req.find("code"); code != req.end()) {
-          vmState |= eRequestParsed;
-
-          L = luaL_newstate();
+        auto const setupLua = [&](lua_State* L) {
+          if (L == nullptr) return false;
 
           static const luaL_Reg lualibs[] = {
 #if LUA_VERSION_NUM > 504
@@ -132,11 +150,11 @@ int main() {
 
           vmState |= eInitialized;
 
-          lua_pushlightuserdata(L, &outString);
-          lua_setfield(L, LUA_REGISTRYINDEX, "_cxxoutput");
+          lua_pushlightuserdata(L, &printString);
+          lua_setfield(L, LUA_REGISTRYINDEX, "_cxxprint");
           lua_pushcfunction(L, [](lua_State* L) -> int32_t {
             auto const nArg = lua_gettop(L);
-            lua_getfield(L, LUA_REGISTRYINDEX, "_cxxoutput");
+            lua_getfield(L, LUA_REGISTRYINDEX, "_cxxprint");
             auto _o = reinterpret_cast<std::string*>(lua_touserdata(L, -1));
             lua_pop(L, 1);
 
@@ -163,43 +181,57 @@ int main() {
             return 0;
           });
           lua_setglobal(L, "print");
+          return true;
+        };
 
-          int32_t const preCall = lua_gettop(L);
-          if (auto const loadErr = luaL_loadstring(L, code->get_ref<std::string const&>().c_str()); loadErr == 0) {
-            vmState |= eCodeCompiled;
+        if (auto const code = req.find("code"); code != req.end()) {
+          vmState |= eRequestParsed;
 
-            if (auto const execError = lua_pcall(L, 0, LUA_MULTRET, 0); execError == 0) {
-              vmState |= eCodeExecuted;
-              nResults = lua_gettop(L) - preCall;
+          if (setupLua(L = luaL_newstate())) {
+            int32_t const preCall = lua_gettop(L);
+            if (auto const loadErr = luaL_loadstring(L, code->get_ref<std::string const&>().c_str()); loadErr == 0) {
+              vmState |= eCodeCompiled;
+
+              if (auto const execError = lua_pcall(L, 0, LUA_MULTRET, 0); execError == 0) {
+                vmState |= eCodeExecuted;
+                nResults = lua_gettop(L) - preCall;
+              }
             }
+          } else {
+            retString = "Failed to initialize LuaVM: Out of memory!";
           }
+
+        } else {
+          retString = "Missing `code` block in the call request!";
         }
 
-        if ((vmState & eRequestParsed) == 0) return makeError(resp, "Missing `code` block!");
-        if ((vmState & eInitialized) == 0) return makeError(resp, "Failed to intialize LuaVM!");
-        if ((nResults == 1 && !lua_isnoneornil(L, -1)) || nResults > 1) {
-          for (int32_t i = 1; i <= nResults; ++i) {
+        if ((vmState & eInitialized) == eInitialized) {
+          if ((nResults == 1 && !lua_isnoneornil(L, -1)) || nResults > 1) {
+            for (int32_t i = 1; i <= nResults; ++i) {
 #if LUA_VERSION_NUM < 502
-            lua_getglobal(L, "tostring");
-            lua_pushvalue(L, i);
-            lua_call(L, 1, 1);
+              lua_getglobal(L, "tostring");
+              lua_pushvalue(L, i);
+              lua_call(L, 1, 1);
 #else
-            luaL_tolstring(L, i, nullptr);
+              luaL_tolstring(L, i, nullptr);
 #endif
-            if (i > 1) outString.push_back('\t');
-            outString.append(lua_tostring(L, -1));
-            lua_pop(L, 1);
+              if (i > 1) retString.push_back('\t');
+              retString.append(lua_tostring(L, -1));
+              lua_pop(L, 1);
+            }
+          } else if (retString.empty()) {
+            retString = "Code execution succeeded with no returned values";
           }
-          if (!outString.empty() && !outString.ends_with('\n')) outString.push_back('\n');
-        } else if (outString.empty()) {
-          outString = "Code execution succeeded with no returned values";
         }
         lua_close(L);
 
-        if ((vmState & eCodeCompiled) == 0) return makeError(resp, "Failed to compile `code` block!\n" + outString);
-        if ((vmState & eCodeExecuted) == 0) return makeError(resp, "Failed to execute `code` block!\n" + outString);
-        resp = {{{"type", "text"}, {"text", outString}}};
-        return true;
+        resp = {
+            {"stage", vmState},
+            {"returned", retString},
+            {"prints", printString},
+        };
+
+        return (vmState & eComplete) == eComplete;
       });
 
   server.startLoop();

@@ -136,15 +136,20 @@ bool MCPIO::makeStep(std::string const& input) {
 
               auto const isError = tool->Callback(*ait, content);
 
-              if (!content.is_array()) {
-                sendError(respId, "Tool response is not an array");
-                return true;
-              }
+              // TODO: add support for audio and image
+              json response = {
+                  {"isError", isError},
+                  {"content",
+                   {
+                       {
+                           {"type", "text"},
+                           {"text", content.dump()},
+                       },
+                   }},
+              };
 
-              sendResponse(respId, {
-                                       {"content", std::move(content)},
-                                       {"isError", isError},
-                                   });
+              if (content.is_structured()) response["structuredContent"] = std::move(content);
+              sendResponse(respId, response);
             } catch (std::exception const& ex) {
               sendError(respId, "Tool exception: " + std::string(ex.what()));
             }
@@ -158,7 +163,7 @@ bool MCPIO::makeStep(std::string const& input) {
         }
       } else if (auto const& noti = jmeth.get_ref<std::string const&>(); noti.starts_with("notifications/")) {
         std::cerr << ">> Notification received from client: " << noti << std::endl;
-        // TODO handle notifications?
+        // TODO: handle notifications?
       } else if (respId.has_value()) {
         sendError(respId, "LightMCP panic: Unhandled MCP method");
         return true;
