@@ -32,7 +32,6 @@ int main() {
         }};
         return true;
       });
-      });
 
   server.registerTool(
       {
@@ -82,7 +81,7 @@ int main() {
         std::string outString;
         lua_State*  L;
 
-        if (auto code = req.find("code"); code != req.end()) {
+        if (auto const code = req.find("code"); code != req.end()) {
           vmState |= eRequestParsed;
 
           L = luaL_newstate();

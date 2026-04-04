@@ -164,7 +164,7 @@ bool MCPIO::makeStep(std::string const& input) {
         return true;
       }
     } else {
-      sendProtocolError(respId, -3333, "No method specified in the request: " + input);
+      sendProtocolError(respId, -32602, "No method specified in the request: " + input);
       return false;
     }
   } catch (nlohmann::json::parse_error const& ex) {
