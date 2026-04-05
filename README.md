@@ -5,6 +5,8 @@ The example executable contains two tools:
 * Arbitrary Lua script execution
 * Random number generation
 
+This project is only tested in [LM Studio](https://lmstudio.ai/) environment. Compatibility with other clients is not guaranteed. If you encounter any error, you're welcome to report it in issues.
+
 > [!WARNING]
 > It is up to user to provide sandboxed Lua interpreter without potentially harmful functionality.
 > Using stock interpreter with untouched `os`, `io`, `ffi` libraries may lead to malicious code

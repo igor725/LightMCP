@@ -234,6 +234,5 @@ int main() {
       });
 
   server.startLoop();
-
-  return 0;
+  return -1; // Should be unreachable normally
 }

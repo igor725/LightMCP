@@ -181,16 +181,14 @@ bool MCPIO::unregisterTool(std::string const& name) {
 }
 
 bool MCPIO::makeStep(std::string const& input) {
-  if (input.empty() || !input.starts_with('{')) return false;
-
   std::lock_guard const lock(Mutex);
 
   try {
     auto const request = nlohmann::json::parse(input);
 
     if (!request.is_object()) {
-      std::cerr << "Incorrect MCP request" << std::endl;
-      return true;
+      std::cerr << "Incorrect MCP request: " << request << std::endl;
+      return false;
     }
 
     auto const respId = request.contains("id") ? request["id"].get<uint64_t>() : std::make_optional<uint64_t>();
@@ -215,11 +213,20 @@ bool MCPIO::makeStep(std::string const& input) {
             sendResponse(respId, init);
           } else {
             sendProtocolError(respId, -32602, "No protocol version specified");
+            return false;
           }
         } else {
           sendProtocolError(respId, -32602, "Invalid params");
+          return false;
         }
-      } else if (jmeth == "tools/list") {
+
+        return true;
+      } else if (!Initialized) {
+        std::cerr << "Non-init request received in uninitialized state: " << request << std::endl;
+        return false;
+      }
+
+      if (jmeth == "tools/list") {
         auto toolsList = nlohmann::json::array();
 
         for (auto const& tool: Tools) {
@@ -231,33 +238,30 @@ bool MCPIO::makeStep(std::string const& input) {
         if (auto pit = request.find("params"); pit != request.end() && pit->is_object()) {
           if (auto nit = pit->find("name"), ait = pit->find("arguments"); nit != pit->end() && ait != pit->end()) {
             auto const toolName = nit->get_ref<std::string const&>();
-            auto const tool     = findTool(toolName);
-            if (tool == Tools.end()) {
+
+            if (auto const tool = findTool(toolName); tool == Tools.end()) {
               sendProtocolError(respId, -32601, "Unknown tool: " + toolName);
               return true;
-            }
-
-            try {
-              MCPContent content;
-              tool->Callback(*ait, content);
-              sendResponse(respId, content.popResult());
-            } catch (std::exception const& ex) {
-              sendError(respId, "Tool exception: " + std::string(ex.what()));
+            } else {
+              try {
+                MCPContent content;
+                tool->Callback(*ait, content);
+                sendResponse(respId, content.popResult());
+              } catch (std::exception const& ex) {
+                sendError(respId, "Tool exception: " + std::string(ex.what()));
+              }
             }
           } else {
             sendProtocolError(respId, -32602, "Missing tool name or arguments object");
-            return true;
           }
         } else {
           sendProtocolError(respId, -32602, "Invalid params");
-          return true;
         }
       } else if (auto const& noti = jmeth.get_ref<std::string const&>(); noti.starts_with("notifications/")) {
         std::cerr << ">> Notification received from client: " << noti << std::endl;
         // TODO: handle notifications?
       } else if (respId.has_value()) {
         sendError(respId, "LightMCP panic: Unhandled MCP method");
-        return true;
       }
     } else {
       sendProtocolError(respId, -32602, "No method specified in the request: " + input);
@@ -265,7 +269,7 @@ bool MCPIO::makeStep(std::string const& input) {
     }
   } catch (nlohmann::json::parse_error const& ex) {
     std::cerr << "JSON parsing error: " + input << std::endl;
-    return true;
+    return false;
   }
 
   return true;
