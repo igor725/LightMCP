@@ -196,19 +196,29 @@ bool MCPIO::makeStep(std::string const& input) {
     auto const respId = request.contains("id") ? request["id"].get<uint64_t>() : std::make_optional<uint64_t>();
     if (auto const jmeth = request["method"]; jmeth.is_string()) {
       if (jmeth == "initialize") {
-        auto const init = nlohmann::json({
-            {"protocolVersion", "2025-06-18"},
-            {"capabilities", {{"tools", {{"listChanged", true}}}}},
-            {"serverInfo",
-             {
-                 {"name", "LightMCP"},
-                 {"title", "Lightweight MCP server written in C++"},
-                 {"version", "1.0.0"},
-             }},
-        });
+        if (auto pit = request.find("params"); pit != request.end() && pit->is_object()) {
+          if (auto cprit = pit->find("protocolVersion"); cprit != pit->end() && cprit->is_string()) {
+            std::cerr << "Client's protocol: " << cprit->get_ref<std::string const&>() << std::endl;
 
-        Initialized = true;
-        sendResponse(respId, init);
+            auto const init = nlohmann::json({
+                {"protocolVersion", "2025-06-18"},
+                {"capabilities", {{"tools", {{"listChanged", true}}}}},
+                {"serverInfo",
+                 {
+                     {"name", "LightMCP"},
+                     {"title", "Lightweight MCP server written in C++"},
+                     {"version", "1.0.0"},
+                 }},
+            });
+
+            Initialized = true;
+            sendResponse(respId, init);
+          } else {
+            sendProtocolError(respId, -32602, "No protocol version specified");
+          }
+        } else {
+          sendProtocolError(respId, -32602, "Invalid params");
+        }
       } else if (jmeth == "tools/list") {
         auto toolsList = nlohmann::json::array();
 
