@@ -30,7 +30,7 @@ void MCPContent::popAnnotations() {
   Annotations.pop();
 }
 
-bool MCPContent::addText(std::string const& text) {
+bool MCPContent::addText(std::string_view text) {
   nlohmann::json resource = {
       {"type", "text"},
       {"text", text},
@@ -41,21 +41,13 @@ bool MCPContent::addText(std::string const& text) {
   return true;
 }
 
-bool MCPContent::addImage(ImageMimeType type, std::span<uint8_t> data) {
+bool MCPContent::addImage(std::string_view mime, std::span<uint8_t> data) {
   if (data.empty()) return false;
 
-  auto const mimeString = [&]() -> std::string_view {
-    switch (type) {
-      case ImageMimeType::ePNG: return "image/png";
-      case ImageMimeType::eJPEG: return "image/jpeg";
-      default: return "image/unknown";
-    }
-  };
-
   nlohmann::json resource {
-      {"type", "audio"},
+      {"type", "image"},
       {"data", base64::encode_into<std::string>(data.begin(), data.end())},
-      {"mimeType", mimeString()},
+      {"mimeType", mime},
   };
 
   if (!Annotations.empty()) resource["annotation"] = Annotations.top();
@@ -63,21 +55,13 @@ bool MCPContent::addImage(ImageMimeType type, std::span<uint8_t> data) {
   return true;
 }
 
-bool MCPContent::addAudio(AudioMimeType type, std::span<uint8_t> data) {
+bool MCPContent::addAudio(std::string_view mime, std::span<uint8_t> data) {
   if (data.empty()) return false;
-
-  auto const mimeString = [&]() {
-    switch (type) {
-      case AudioMimeType::eWaveform: return "audio/wav";
-      case AudioMimeType::eMP3: return "audio/mp3";
-      default: return "audio/unknown";
-    }
-  };
 
   nlohmann::json resource {
       {"type", "audio"},
       {"data", base64::encode_into<std::string>(data.begin(), data.end())},
-      {"mimeType", mimeString()},
+      {"mimeType", mime},
   };
 
   if (!Annotations.empty()) resource["annotation"] = Annotations.top();
@@ -94,6 +78,7 @@ bool MCPContent::addStructured(nlohmann::json const&& block) {
 }
 
 nlohmann::json const&& MCPContent::popResult() {
+  (std::stack<nlohmann::json> {}).swap(Annotations);
   return std::move(Result);
 }
 
@@ -108,7 +93,7 @@ void MCPIO::sendResponse(std::optional<uint64_t> req_id, nlohmann::json const& r
             << std::endl;
 }
 
-void MCPIO::sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string const& err) const {
+void MCPIO::sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string_view err) const {
   if (!Initialized || !std::cout.good() || !req_id.has_value()) return;
 
   std::cout << nlohmann::json({
@@ -122,20 +107,20 @@ void MCPIO::sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std:
             << std::endl;
 }
 
-void MCPIO::sendError(std::optional<uint64_t> req_id, std::string const& err) const {
+void MCPIO::sendError(std::optional<uint64_t> req_id, std::string_view err) const {
   return sendResponse(req_id, {
                                   {"content", {{{"type", "text"}, {"text", err}}}},
                                   {"isError", true},
                               });
 }
 
-void MCPIO::sendNotification(std::string const& noti) const {
+void MCPIO::sendNotification(std::string_view noti) const {
   if (!Initialized || !std::cout.good()) return;
   // TODO: `noti` name check
 
   std::cout << nlohmann::json({
                    {"jsonrpc", "2.0"},
-                   {"method", "notifications/" + noti},
+                   {"method", "notifications/" + std::string(noti)},
                })
             << std::endl;
 }
@@ -168,7 +153,7 @@ bool MCPIO::registerTool(nlohmann::json const& toolDesc, tcall callback) {
   return true;
 }
 
-bool MCPIO::unregisterTool(std::string const& name) {
+bool MCPIO::unregisterTool(std::string_view name) {
   std::lock_guard const lock(Mutex);
 
   if (auto it = findTool(name); it != Tools.end()) {
@@ -180,7 +165,7 @@ bool MCPIO::unregisterTool(std::string const& name) {
   return false;
 }
 
-bool MCPIO::makeStep(std::string const& input) {
+bool MCPIO::makeStep(std::string_view input) {
   std::lock_guard const lock(Mutex);
 
   try {
@@ -264,11 +249,11 @@ bool MCPIO::makeStep(std::string const& input) {
         sendError(respId, "LightMCP panic: Unhandled MCP method");
       }
     } else {
-      sendProtocolError(respId, -32602, "No method specified in the request: " + input);
+      sendProtocolError(respId, -32602, "No method specified in the request: " + std::string(input));
       return false;
     }
   } catch (nlohmann::json::parse_error const& ex) {
-    std::cerr << "JSON parsing error: " + input << std::endl;
+    std::cerr << "JSON parsing error: " << input << std::endl;
     return false;
   }
 

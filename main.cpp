@@ -22,7 +22,7 @@ int main() {
       {
           {"name", "get_random_integer"},
           {"title", "Random Integer"},
-          {"description", "This tool returns a random integer value e.g. 0, 95, 322, 666. Value range is: [0, " TOSTR(RAND_MAX) "]."},
+          {"description", "This tool returns a random decimal integer value e.g. 0, 95, 322, 666. Value range is: [0x0, " TOSTR(RAND_MAX) "]."},
           {"inputSchema", {{"type", "object"}, {"additionalProperties", false}}},
       },
       [](nlohmann::json const& req, MCPContent& resp) { resp.addText(std::to_string(std::rand())); });
