@@ -25,10 +25,7 @@ int main() {
           {"description", "This tool returns a random integer value e.g. 0, 95, 322, 666. Value range is: [0, " TOSTR(RAND_MAX) "]."},
           {"inputSchema", {{"type", "object"}, {"additionalProperties", false}}},
       },
-      [](nlohmann::json const& req, nlohmann::json& resp) {
-        resp = std::to_string(std::rand());
-        return true;
-      });
+      [](nlohmann::json const& req, MCPContent& resp) { resp.addText(std::to_string(std::rand())); });
 
   server.registerTool(
       {
@@ -68,7 +65,9 @@ int main() {
                        {"stage",
                         {
                             {"type", "number"},
-                            {"description", "Code execution stage. Values: RequestParsed = 1, Initialized = 3, CodeCompiled = 7, CodeExcuted = 15"},
+                            {"description", "Code execution stage."
+                                            "Values: RequestParsed = 1, Initialized = 3, CodeCompiled = 7, CodeExcuted = 15."
+                                            "Everything below 15 means there was an error."},
                         }},
                        {"returned",
                         {
@@ -85,7 +84,7 @@ int main() {
               },
           },
       },
-      [](nlohmann::json const& req, nlohmann::json& resp) -> bool {
+      [](nlohmann::json const& req, MCPContent& resp) {
         enum VMState {
           eNone,
           eRequestParsed = 1 << 0,
@@ -225,13 +224,13 @@ int main() {
         }
         lua_close(L);
 
-        resp = {
+        resp.addStructured({
             {"stage", vmState},
             {"returned", retString},
             {"prints", printString},
-        };
+        });
 
-        return (vmState & eComplete) == eComplete;
+        if (vmState != eComplete) resp.setErrorFlag();
       });
 
   server.startLoop();

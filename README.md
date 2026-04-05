@@ -21,3 +21,7 @@ Add the application to your `mcp.json`. Here's the file example:
   }
 }
 ```
+
+## License
+This project is licensed under MIT license.
+Used third party libraries and their corresponding licenses are placed inside the `third_party` directory.

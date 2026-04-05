@@ -1,7 +1,101 @@
 #include "mcp_io.h"
 
+#include "third_party/base64.hpp"
+
+#include <cassert>
 #include <iostream>
 #include <string>
+#include <string_view>
+
+void MCPContent::setErrorFlag() {
+  Result["isError"] = true;
+}
+
+void MCPContent::pushAnnotations(bool userAttention, bool assistantAttention, float priority, std::string_view lastMod) {
+  nlohmann::json audience = nlohmann::json::array();
+  if (userAttention) audience.push_back("user");
+  if (assistantAttention) audience.push_back("assistant");
+
+  nlohmann::json data {
+      {"audience", std::move(audience)},
+      {"prio", priority},
+  };
+
+  if (!lastMod.empty()) data.emplace("lastModified", lastMod);
+  Annotations.emplace(std::move(data));
+}
+
+void MCPContent::popAnnotations() {
+  assert(!Annotations.empty());
+  Annotations.pop();
+}
+
+bool MCPContent::addText(std::string const& text) {
+  nlohmann::json resource = {
+      {"type", "text"},
+      {"text", text},
+  };
+
+  if (!Annotations.empty()) resource["annotation"] = Annotations.top();
+  Result["content"].emplace_back(std::move(resource));
+  return true;
+}
+
+bool MCPContent::addImage(ImageMimeType type, std::span<uint8_t> data) {
+  if (data.empty()) return false;
+
+  auto const mimeString = [&]() -> std::string_view {
+    switch (type) {
+      case ImageMimeType::ePNG: return "image/png";
+      case ImageMimeType::eJPEG: return "image/jpeg";
+      default: return "image/unknown";
+    }
+  };
+
+  nlohmann::json resource {
+      {"type", "audio"},
+      {"data", base64::encode_into<std::string>(data.begin(), data.end())},
+      {"mimeType", mimeString()},
+  };
+
+  if (!Annotations.empty()) resource["annotation"] = Annotations.top();
+  Result["content"].emplace_back(std::move(resource));
+  return true;
+}
+
+bool MCPContent::addAudio(AudioMimeType type, std::span<uint8_t> data) {
+  if (data.empty()) return false;
+
+  auto const mimeString = [&]() {
+    switch (type) {
+      case AudioMimeType::eWaveform: return "audio/wav";
+      case AudioMimeType::eMP3: return "audio/mp3";
+      default: return "audio/unknown";
+    }
+  };
+
+  nlohmann::json resource {
+      {"type", "audio"},
+      {"data", base64::encode_into<std::string>(data.begin(), data.end())},
+      {"mimeType", mimeString()},
+  };
+
+  if (!Annotations.empty()) resource["annotation"] = Annotations.top();
+  Result["content"].emplace_back(std::move(resource));
+  return true;
+}
+
+bool MCPContent::addStructured(nlohmann::json const&& block) {
+  if (!block.is_object()) return false;
+  if (Result.find("structuredContent") != Result.end()) return false;
+  addText(block.dump()); // Backward compatibility?
+  Result["structuredContent"] = std::move(block);
+  return true;
+}
+
+nlohmann::json const&& MCPContent::popResult() {
+  return std::move(Result);
+}
 
 void MCPIO::sendResponse(std::optional<uint64_t> req_id, nlohmann::json const& resp) const {
   if (!Initialized || !std::cout.good()) return;
@@ -17,12 +111,14 @@ void MCPIO::sendResponse(std::optional<uint64_t> req_id, nlohmann::json const& r
 void MCPIO::sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string const& err) const {
   if (!Initialized || !std::cout.good() || !req_id.has_value()) return;
 
-  std::cout << nlohmann::json {{"jsonrpc", "2.0"},
-                               {"id", *req_id},
-                               {
-                                   "error",
-                                   {{"code", code}, {"message", err}},
-                               }}
+  std::cout << nlohmann::json({
+                   {"jsonrpc", "2.0"},
+                   {"id", *req_id},
+                   {
+                       "error",
+                       {{"code", code}, {"message", err}},
+                   },
+               })
             << std::endl;
 }
 
@@ -44,7 +140,7 @@ void MCPIO::sendNotification(std::string const& noti) const {
             << std::endl;
 }
 
-bool MCPIO::registerTool(nlohmann::json const& toolDesc, std::function<bool(json const& req, json& resp)> callback) {
+bool MCPIO::registerTool(nlohmann::json const& toolDesc, tcall callback) {
   std::lock_guard const lock(Mutex);
 
   if (!toolDesc.is_object()) return false;
@@ -132,24 +228,9 @@ bool MCPIO::makeStep(std::string const& input) {
             }
 
             try {
-              json content = nlohmann::json::array();
-
-              auto const isError = tool->Callback(*ait, content);
-
-              // TODO: add support for audio and image
-              json response = {
-                  {"isError", isError},
-                  {"content",
-                   {
-                       {
-                           {"type", "text"},
-                           {"text", content.dump()},
-                       },
-                   }},
-              };
-
-              if (content.is_structured()) response["structuredContent"] = std::move(content);
-              sendResponse(respId, response);
+              MCPContent content;
+              tool->Callback(*ait, content);
+              sendResponse(respId, content.popResult());
             } catch (std::exception const& ex) {
               sendError(respId, "Tool exception: " + std::string(ex.what()));
             }

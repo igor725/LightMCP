@@ -1,15 +1,55 @@
 #pragma once
 
-#include "json.hpp"
+#include "third_party/json.hpp"
 
 #include <cstdint>
 #include <list>
 #include <mutex>
+#include <stack>
+
+class MCPContent {
+  enum class Type {
+    eText,  // Plain
+    eImage, // B64
+    eAudio, // B64
+  };
+
+  public:
+  enum class ImageMimeType { // TODO: More formats?
+    ePNG,
+    eJPEG,
+  };
+
+  enum class AudioMimeType { // TODO: More formats?
+    eWaveform,
+    eMP3,
+  };
+
+  void setErrorFlag();
+
+  void pushAnnotations(bool userAttention, bool assistantAttention, float priority, std::string_view lastMod = {});
+  void popAnnotations();
+
+  bool addText(std::string const& text);
+  bool addImage(ImageMimeType type, std::span<uint8_t> data);
+  bool addAudio(AudioMimeType type, std::span<uint8_t> data);
+  bool addStructured(nlohmann::json const&& block);
+
+  nlohmann::json const&& popResult();
+
+  private:
+  nlohmann::json Result = nlohmann::json::object({
+      {"isError", false},
+      {"content", nlohmann::json::array()},
+  });
+
+  std::stack<nlohmann::json> Annotations;
+};
 
 class MCPIO {
   private:
   using json  = nlohmann::json;
-  using tcall = std::function<bool(json const& req, json& resp)>;
+  using tcall = std::function<void(json const& req, MCPContent& resp)>;
 
   struct Tool {
     json const  Info;
