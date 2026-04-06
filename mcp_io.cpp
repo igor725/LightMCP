@@ -135,29 +135,34 @@ nlohmann::json const&& MCPContent::popResult() {
   return std::move(Result);
 }
 
-void MCPIO::sendResponse(std::optional<uint64_t> req_id, nlohmann::json const& resp) const {
+void MCPIO::sendResponse(std::optional<uint64_t> req_id, nlohmann::json const&& resp) const {
   if (!Initialized || !std::cout.good()) return;
 
   std::cout << nlohmann::json({
                    {"jsonrpc", "2.0"},
                    {"id", req_id},
-                   {"result", resp},
+                   {"result", std::move(resp)},
                })
             << std::endl;
 }
 
-void MCPIO::sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string_view err) const {
+void MCPIO::sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string_view err, json const&& data) const {
   if (!Initialized || !std::cout.good() || !req_id.has_value()) return;
 
-  std::cout << nlohmann::json({
-                   {"jsonrpc", "2.0"},
-                   {"id", *req_id},
-                   {
-                       "error",
-                       {{"code", code}, {"message", err}},
-                   },
-               })
-            << std::endl;
+  nlohmann::json error {
+      {"jsonrpc", "2.0"},
+      {"id", *req_id},
+      {
+          "error",
+          {
+              {"code", code},
+              {"message", err},
+          },
+      },
+  };
+  if (data.is_object()) error["error"]["data"] = std::move(data);
+
+  std::cout << error << std::endl;
 }
 
 void MCPIO::sendError(std::optional<uint64_t> req_id, std::string_view err) const {
@@ -178,7 +183,7 @@ void MCPIO::sendNotification(std::string_view noti) const {
             << std::endl;
 }
 
-bool MCPIO::registerTool(nlohmann::json const& toolDesc, tcall callback) {
+bool MCPIO::registerTool(nlohmann::json const&& toolDesc, tcall callback) {
   std::lock_guard const lock(Mutex);
 
   if (!toolDesc.is_object()) return false;
@@ -201,7 +206,7 @@ bool MCPIO::registerTool(nlohmann::json const& toolDesc, tcall callback) {
 
   // TODO: more checks
 
-  Tools.emplace_back(toolDesc, callback);
+  Tools.emplace_back(std::move(toolDesc), callback);
   sendNotification("tools/list_changed");
   return true;
 }
@@ -282,7 +287,7 @@ bool MCPIO::makeStep(std::string_view input) {
             });
 
             Initialized = true;
-            sendResponse(respId, init);
+            sendResponse(respId, std::move(init));
           } else {
             sendProtocolError(respId, -32602, "No protocol version specified");
             return false;

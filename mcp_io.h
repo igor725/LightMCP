@@ -76,8 +76,8 @@ class MCPIO {
   std::list<Tool>     Tools     = {};
   std::list<Resource> Resources = {};
 
-  void sendResponse(std::optional<uint64_t> req_id, json const& resp) const;
-  void sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string_view err) const;
+  void sendResponse(std::optional<uint64_t> req_id, json const&& resp) const;
+  void sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string_view err, json const&& data = nullptr) const;
   void sendError(std::optional<uint64_t> req_id, std::string_view err) const;
   void sendNotification(std::string_view noti) const;
 
@@ -102,7 +102,7 @@ class MCPIO {
   bool makeStep(std::string_view input);
 
   public:
-  bool registerTool(json const& toolDesc, tcall callback);
+  bool registerTool(json const&& toolDesc, tcall callback);
   bool unregisterTool(std::string_view name);
   bool registerResource(std::string_view uri, rcall callback);
   bool unregisterResource(std::string_view uri);
