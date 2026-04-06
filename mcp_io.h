@@ -28,7 +28,7 @@ class MCPResources: public MCPAnnotation {
   bool addText(std::string_view uri, std::string_view text, std::string_view mime = {});
   bool addBinary(std::string_view uri, std::span<uint8_t> data, std::string_view mime = {});
 
-  nlohmann::json const&& popResult();
+  nlohmann::json popResult();
 
   private:
   nlohmann::json Result = nlohmann::json::array();
@@ -44,13 +44,13 @@ class MCPContent: public MCPAnnotation {
   bool addAudio(std::string_view mime, std::span<uint8_t> data);
   bool addStructured(nlohmann::json const&& block);
 
-  nlohmann::json const&& popResult();
+  nlohmann::json popResult();
 
   private:
-  nlohmann::json Result = nlohmann::json::object({
+  nlohmann::json Result = {
       {"isError", false},
       {"content", nlohmann::json::array()},
-  });
+  };
 };
 
 class MCPIO {

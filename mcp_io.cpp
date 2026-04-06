@@ -74,7 +74,7 @@ bool MCPResources::addBinary(std::string_view uri, std::span<uint8_t> data, std:
   return true;
 }
 
-nlohmann::json const&& MCPResources::popResult() {
+nlohmann::json MCPResources::popResult() {
   (std::stack<nlohmann::json> {}).swap(Annotations);
   return std::move(Result);
 }
@@ -130,7 +130,7 @@ bool MCPContent::addStructured(nlohmann::json const&& block) {
   return true;
 }
 
-nlohmann::json const&& MCPContent::popResult() {
+nlohmann::json MCPContent::popResult() {
   (std::stack<nlohmann::json> {}).swap(Annotations);
   return std::move(Result);
 }
