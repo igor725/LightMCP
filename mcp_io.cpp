@@ -7,11 +7,7 @@
 #include <string>
 #include <string_view>
 
-void MCPContent::setErrorFlag() {
-  Result["isError"] = true;
-}
-
-void MCPContent::pushAnnotations(bool userAttention, bool assistantAttention, float priority, std::string_view lastMod) {
+void MCPAnnotation::pushAnnotations(bool userAttention, bool assistantAttention, float priority, std::string_view lastMod) {
   nlohmann::json audience = nlohmann::json::array();
   if (userAttention) audience.push_back("user");
   if (assistantAttention) audience.push_back("assistant");
@@ -25,9 +21,66 @@ void MCPContent::pushAnnotations(bool userAttention, bool assistantAttention, fl
   Annotations.emplace(std::move(data));
 }
 
-void MCPContent::popAnnotations() {
+void MCPAnnotation::popAnnotations() {
   assert(!Annotations.empty());
   Annotations.pop();
+}
+
+bool MCPResources::addMeta(sv uri, sv name, sv title, sv desc, sv mime, size_t size) {
+  if (uri.empty() || name.empty()) return false; // TODO: Check URI scheme validity
+
+  nlohmann::json resource {
+      {"uri", uri},
+      {"name", name},
+  };
+
+  if (!title.empty()) resource["title"] = title;
+  if (!desc.empty()) resource["description"] = desc;
+  if (!mime.empty()) resource["mimeType"] = mime;
+  if (size > 0) resource["size"] = size;
+
+  if (!Annotations.empty()) resource["annotation"] = Annotations.top();
+  Result.emplace_back(std::move(resource));
+  return true;
+}
+
+bool MCPResources::addText(std::string_view uri, std::string_view text, std::string_view mime) {
+  if (uri.empty()) return false; // TODO: Check URI scheme validity
+
+  nlohmann::json resource {
+      {"uri", uri},
+      {"text", text},
+  };
+
+  if (!mime.empty()) resource["mimeType"] = mime;
+
+  if (!Annotations.empty()) resource["annotation"] = Annotations.top();
+  Result.emplace_back(std::move(resource));
+  return true;
+}
+
+bool MCPResources::addBinary(std::string_view uri, std::span<uint8_t> data, std::string_view mime) {
+  if (uri.empty()) return false; // TODO: Check URI scheme validity
+
+  nlohmann::json resource {
+      {"uri", uri},
+      {"blob", base64::encode_into<std::string>(data.begin(), data.end())},
+  };
+
+  if (!mime.empty()) resource["mimeType"] = mime;
+
+  if (!Annotations.empty()) resource["annotation"] = Annotations.top();
+  Result.emplace_back(std::move(resource));
+  return true;
+}
+
+nlohmann::json const&& MCPResources::popResult() {
+  (std::stack<nlohmann::json> {}).swap(Annotations);
+  return std::move(Result);
+}
+
+void MCPContent::setErrorFlag() {
+  Result["isError"] = true;
 }
 
 bool MCPContent::addText(std::string_view text) {
@@ -165,6 +218,30 @@ bool MCPIO::unregisterTool(std::string_view name) {
   return false;
 }
 
+bool MCPIO::registerResource(std::string_view uri, rcall callback) {
+  std::lock_guard const lock(Mutex);
+
+  if (findResource(uri) == Resources.end()) {
+    Resources.emplace_back(std::string(uri), callback);
+    sendNotification("resources/list_changed");
+    return true;
+  }
+
+  return false;
+}
+
+bool MCPIO::unregisterResource(std::string_view uri) {
+  std::lock_guard const lock(Mutex);
+
+  if (auto it = findResource(uri); it != Resources.end()) {
+    Resources.erase(it);
+    sendNotification("resources/list_changed");
+    return true;
+  }
+
+  return false;
+}
+
 bool MCPIO::makeStep(std::string_view input) {
   std::lock_guard const lock(Mutex);
 
@@ -177,7 +254,7 @@ bool MCPIO::makeStep(std::string_view input) {
     }
 
     auto const respId = request.contains("id") ? request["id"].get<uint64_t>() : std::make_optional<uint64_t>();
-    if (auto const jmeth = request["method"]; jmeth.is_string()) {
+    if (auto const& jmeth = request["method"]; jmeth.is_string()) {
       if (jmeth == "initialize") {
         if (auto pit = request.find("params"); pit != request.end() && pit->is_object()) {
           if (auto cprit = pit->find("protocolVersion"); cprit != pit->end() && cprit->is_string()) {
@@ -185,7 +262,17 @@ bool MCPIO::makeStep(std::string_view input) {
 
             auto const init = nlohmann::json({
                 {"protocolVersion", "2025-06-18"},
-                {"capabilities", {{"tools", {{"listChanged", true}}}}},
+                {"capabilities",
+                 {
+                     {"tools",
+                      {
+                          {"listChanged", true},
+                      }},
+                     {"resources",
+                      {
+                          {"listChanged", true},
+                      }},
+                 }},
                 {"serverInfo",
                  {
                      {"name", "LightMCP"},
@@ -211,42 +298,88 @@ bool MCPIO::makeStep(std::string_view input) {
         return false;
       }
 
-      if (jmeth == "tools/list") {
-        auto toolsList = nlohmann::json::array();
+      if (auto& method = jmeth.get_ref<std::string const&>(); !method.empty()) {
+        auto const submethod = std::string_view(method).substr(method.find_first_of('/') + 1);
 
-        for (auto const& tool: Tools) {
-          toolsList.push_back(tool.Info);
-        }
+        if (method.starts_with("tools/")) {
+          if (submethod == "list") {
+            auto toolsList = nlohmann::json::array();
 
-        sendResponse(respId, {{"tools", std::move(toolsList)}});
-      } else if (jmeth == "tools/call") {
-        if (auto pit = request.find("params"); pit != request.end() && pit->is_object()) {
-          if (auto nit = pit->find("name"), ait = pit->find("arguments"); nit != pit->end() && ait != pit->end()) {
-            auto const toolName = nit->get_ref<std::string const&>();
+            for (auto const& tool: Tools) {
+              toolsList.push_back(tool.Info);
+            }
 
-            if (auto const tool = findTool(toolName); tool == Tools.end()) {
-              sendProtocolError(respId, -32601, "Unknown tool: " + toolName);
-              return true;
+            sendResponse(respId, {{"tools", std::move(toolsList)}});
+          } else if (submethod == "call") {
+            if (auto pit = request.find("params"); pit != request.end() && pit->is_object()) {
+              if (auto nit = pit->find("name"), ait = pit->find("arguments"); nit != pit->end() && ait != pit->end()) {
+                auto& toolName = nit->get_ref<std::string const&>();
+
+                if (auto const tool = findTool(toolName); tool == Tools.end()) {
+                  sendProtocolError(respId, -32601, "Unknown tool: " + toolName);
+                  return true;
+                } else {
+                  try {
+                    MCPContent content;
+                    tool->Callback(*ait, content);
+                    sendResponse(respId, content.popResult());
+                  } catch (std::exception const& ex) {
+                    sendError(respId, "Tool exception: " + std::string(ex.what()));
+                  }
+                }
+              } else {
+                sendProtocolError(respId, -32602, "Missing tool name or arguments object");
+              }
             } else {
-              try {
-                MCPContent content;
-                tool->Callback(*ait, content);
-                sendResponse(respId, content.popResult());
-              } catch (std::exception const& ex) {
-                sendError(respId, "Tool exception: " + std::string(ex.what()));
+              sendProtocolError(respId, -32602, "Invalid params");
+            }
+          }
+        } else if (method.starts_with("resources/")) {
+          if (submethod == "list") {
+            MCPResources resList(true);
+
+            try {
+              for (auto const& res: Resources) {
+                res.Callback(nullptr, resList);
+              }
+
+              sendResponse(respId, {{"resources", resList.popResult()}});
+            } catch (std::exception const& ex) {
+              sendError(respId, "Resource list exception: " + std::string(ex.what()));
+            }
+          } else if (submethod == "read") {
+            if (auto pit = request.find("params"); pit != request.end() && pit->is_object()) {
+              if (auto uit = pit->find("uri"); uit != pit->end() && uit->is_string()) {
+                MCPResources resList(false);
+
+                try {
+                  bool found = false;
+
+                  for (auto const& res: Resources) {
+                    if (*uit == res.URI) {
+                      res.Callback(*pit, resList);
+                      found = true;
+                      break;
+                    }
+                  }
+
+                  if (found) {
+                    sendResponse(respId, {{"contents", resList.popResult()}});
+                  } else {
+                    sendProtocolError(respId, -32002, "Resource not found");
+                  }
+                } catch (std::exception const& ex) {
+                  sendError(respId, "Resource list exception: " + std::string(ex.what()));
+                }
               }
             }
-          } else {
-            sendProtocolError(respId, -32602, "Missing tool name or arguments object");
           }
-        } else {
-          sendProtocolError(respId, -32602, "Invalid params");
+        } else if (method.starts_with("notifications/")) {
+          std::cerr << ">> Notification received from client: " << method << std::endl;
+          // TODO: handle notifications?
+        } else if (respId.has_value()) {
+          sendProtocolError(respId, -32602, "Unhandled MCP method");
         }
-      } else if (auto const& noti = jmeth.get_ref<std::string const&>(); noti.starts_with("notifications/")) {
-        std::cerr << ">> Notification received from client: " << noti << std::endl;
-        // TODO: handle notifications?
-      } else if (respId.has_value()) {
-        sendError(respId, "LightMCP panic: Unhandled MCP method");
       }
     } else {
       sendProtocolError(respId, -32602, "No method specified in the request: " + std::string(input));
