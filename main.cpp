@@ -38,7 +38,7 @@ int main() {
                           "OS-level operations like `os.execute`, `io.open`, ... are available too. "
 #endif
                           "Example: `return _VERSION` outputs the Lua interpreter version. Note: tables cannot be printed directly - use a `for` loop with "
-                          "`print` to iterate and display contents. Script runs internally via `lua_pcall`."},
+                          "`print()` to iterate and display contents. Script runs internally via `lua_pcall`."},
           {
               "inputSchema",
               {

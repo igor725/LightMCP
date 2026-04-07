@@ -18,19 +18,10 @@ else()
     mcp_io.cpp
   )
 
-  find_package(Lua ${LMCP_LUA_VERSION} EXACT REQUIRED)
+  find_package(Lua ${LMCP_LUA_VERSION} REQUIRED)
 
-  if(Lua_FOUND AND NOT TARGET Lua::Lua)
-    add_library(Lua::Lua INTERFACE IMPORTED)
-    set_target_properties(
-      Lua::Lua
-      PROPERTIES
-      INTERFACE_INCLUDE_DIRECTORIES "${LUA_INCLUDE_DIR}"
-      INTERFACE_LINK_LIBRARIES "${LUA_LIBRARIES}"
-    )
-  endif()
-
-  target_link_libraries(LightMCP PRIVATE Lua::Lua)
+  target_link_libraries(LightMCP PRIVATE ${LUA_LIBRARIES})
+  target_include_directories(LightMCP PRIVATE ${LUA_INCLUDE_DIR})
 
   target_compile_definitions(LightMCP PRIVATE $<$<BOOL:${LMCP_UNSAFE}>:LMCP_UNSAFE>)
 endif()
