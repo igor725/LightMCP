@@ -131,7 +131,7 @@ int main() {
 #endif
 #endif
 
-#ifdef LCMP_UNSAFE
+#ifdef LMCP_UNSAFE
               {LUA_LOADLIBNAME, luaopen_package},
 #endif
 
@@ -155,7 +155,7 @@ int main() {
           }
 #endif
 
-#ifndef LCMP_UNSAFE
+#ifndef LMCP_UNSAFE
           const char* unsafe[] = {"require", "loadfile", "dofile", nullptr};
           for (uint32_t i = 0; unsafe[i]; ++i) {
             lua_pushnil(L);
