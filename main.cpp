@@ -107,7 +107,7 @@ int main() {
 #if LUA_VERSION_NUM > 504
               {LUA_GNAME, luaopen_base},
 #else
-                      {"", luaopen_base},
+              {"", luaopen_base},
 #endif
 
 #if LUA_VERSION_NUM > 502
@@ -123,15 +123,23 @@ int main() {
 #endif
 
 #ifdef LMCP_UNSAFE
-              {LUA_OSLIBNAME, luaopen_os},        {LUA_IOLIBNAME, luaopen_io},
+              {LUA_OSLIBNAME, luaopen_os},
+              {LUA_IOLIBNAME, luaopen_io},
 
 #ifdef LUA_FFILIBNAME
               {LUA_FFILIBNAME, luaopen_ffi},
 #endif
 #endif
 
-              {LUA_LOADLIBNAME, luaopen_package}, {LUA_TABLIBNAME, luaopen_table}, {LUA_STRLIBNAME, luaopen_string},
-              {LUA_MATHLIBNAME, luaopen_math},    {LUA_DBLIBNAME, luaopen_debug},  {NULL, NULL},
+#ifdef LCMP_UNSAFE
+              {LUA_LOADLIBNAME, luaopen_package},
+#endif
+
+              {LUA_TABLIBNAME, luaopen_table},
+              {LUA_STRLIBNAME, luaopen_string},
+              {LUA_MATHLIBNAME, luaopen_math},
+              {LUA_DBLIBNAME, luaopen_debug},
+              {NULL, NULL},
           };
 
 #if LUA_VERSION_NUM > 501
@@ -144,6 +152,14 @@ int main() {
             lua_pushcfunction(L, lib->func);
             lua_pushstring(L, lib->name);
             lua_call(L, 1, 0);
+          }
+#endif
+
+#ifndef LCMP_UNSAFE
+          const char* unsafe[] = {"require", "loadfile", "dofile", nullptr};
+          for (uint32_t i = 0; unsafe[i]; ++i) {
+            lua_pushnil(L);
+            lua_setglobal(L, unsafe[i]);
           }
 #endif
 

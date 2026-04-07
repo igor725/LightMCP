@@ -5,6 +5,7 @@ include(FetchContent)
 project(LightMCP VERSION 1.0 LANGUAGES CXX C)
 
 option(LMCP_UNSAFE "Enable unsafe Lua functionality for MCP server (has no effect when compiled as library)" OFF)
+set(LMCP_LUA_VERSION "5.1" CACHE STRING "Sets the Lua interpreter version for CMake to find (has no effect when compiled as library)")
 option(LCMP_STATIC "Compile LightMCP as static library" OFF)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -17,7 +18,7 @@ else()
     mcp_io.cpp
   )
 
-  find_package(Lua 5.1 REQUIRED)
+  find_package(Lua ${LMCP_LUA_VERSION} EXACT REQUIRED)
 
   if(Lua_FOUND AND NOT TARGET Lua::Lua)
     add_library(Lua::Lua INTERFACE IMPORTED)
