@@ -183,6 +183,7 @@ int main() {
             lua_getfield(L, LUA_REGISTRYINDEX, "_cxxprint");
             auto _o = reinterpret_cast<std::string*>(lua_touserdata(L, -1));
             lua_pop(L, 1);
+            if (_o->length() > 5000) return luaL_error(L, "Print buffer is too long");
 
 #if LUA_VERSION_NUM < 502
             lua_getglobal(L, "tostring");
@@ -226,7 +227,6 @@ int main() {
           } else {
             retString = "Failed to initialize LuaVM: Out of memory!";
           }
-
         } else {
           retString = "Missing `code` block in the call request!";
         }
@@ -234,6 +234,12 @@ int main() {
         if ((vmState & eInitialized) == eInitialized) {
           if ((nResults == 1 && !lua_isnoneornil(L, -1)) || nResults > 1) {
             for (int32_t i = 1; i <= nResults; ++i) {
+              if (retString.length() >= 256) {
+              rs_trunc:
+                retString.append("[return statement is truncated, it's longer than 256 bytes]");
+                break;
+              }
+
 #if LUA_VERSION_NUM < 502
               lua_getglobal(L, "tostring");
               lua_pushvalue(L, i);
@@ -241,8 +247,13 @@ int main() {
 #else
               luaL_tolstring(L, i, nullptr);
 #endif
+              auto const str = std::string_view(lua_tostring(L, -1));
+              if ((retString.length() + str.length()) > 256) {
+                lua_pop(L, 1);
+                goto rs_trunc;
+              }
               if (i > 1) retString.push_back('\t');
-              retString.append(lua_tostring(L, -1));
+              retString.append(str);
               lua_pop(L, 1);
             }
           } else if (retString.empty()) {
