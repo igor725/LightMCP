@@ -4,7 +4,7 @@
   "cmake.sourceDirectory": "${workspaceFolder}",
   "cmake.buildDirectory": "${workspaceFolder}/build",
   "cmake.configureArgs": [
-    "-DLMCP_LUA_VERSION=5.5"
+    "-DLMCP_LUA_VERSION=5.1"
   ],
   "cmake.configureSettings": {
     "CMAKE_INSTALL_PREFIX": "${workspaceFolder}/build",

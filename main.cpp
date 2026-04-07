@@ -36,6 +36,7 @@ int main() {
           {"description", "This tool executes arbitrary Lua code in a user environment, ideal for math computations and string operations. "
 #ifndef LMCP_UNSAFE
                           "For security, some unsafe functionality in modules like `os` and `io` was stripped to prevent the system damage. "
+                          "Using harmless functions like os.time(), os.date() etc is allowed and encouraged if they are needed for a task you solving. "
 #else
                           "OS-level operations like `os.execute`, `io.open`, ... are available too. "
 #endif

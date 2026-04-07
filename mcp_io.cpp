@@ -402,7 +402,6 @@ void MCPIO::startLoop() {
   if (Initialized) return;
 
   std::string line;
-
   std::setvbuf(stdout, nullptr, _IONBF, 0);
   while (std::getline(std::cin, line)) {
     if (!makeStep(line)) break;
