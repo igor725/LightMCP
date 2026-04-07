@@ -6,9 +6,7 @@
   "cmake.configureArgs": [
     "-DLMCP_LUA_VERSION=5.1"
   ],
-  "cmake.configureSettings": {
-    "CMAKE_INSTALL_PREFIX": "${workspaceFolder}/build",
-  },
+  "cmake.configureSettings": {},
   "clangd.arguments": [
     "--compile-commands-dir=./build",
     "--header-insertion=never"

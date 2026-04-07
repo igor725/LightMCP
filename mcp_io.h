@@ -2,6 +2,7 @@
 
 #include "third_party/json.hpp"
 
+#include <chrono>
 #include <cstdint>
 #include <list>
 #include <mutex>
@@ -9,7 +10,9 @@
 
 class MCPAnnotation {
   public:
-  void pushAnnotations(bool userAttention, bool assistantAttention, float priority, std::string_view lastMod = {});
+  using Clock = std::chrono::system_clock;
+
+  void pushAnnotations(bool userAttention, bool assistantAttention, float priority, Clock::time_point lastMod = {});
   void popAnnotations();
 
   protected:

@@ -99,7 +99,7 @@ int main() {
         };
 
         uint32_t    vmState  = eNone;
-        uint32_t    nResults = 1;
+        uint32_t    nResults = 1; // It's 1 initially for error handling
         std::string retString, printString;
         lua_State*  L;
 

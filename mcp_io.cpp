@@ -3,11 +3,12 @@
 #include "third_party/base64.hpp"
 
 #include <cassert>
+#include <format>
 #include <iostream>
 #include <string>
 #include <string_view>
 
-void MCPAnnotation::pushAnnotations(bool userAttention, bool assistantAttention, float priority, std::string_view lastMod) {
+void MCPAnnotation::pushAnnotations(bool userAttention, bool assistantAttention, float priority, Clock::time_point lastMod) {
   nlohmann::json audience = nlohmann::json::array();
   if (userAttention) audience.push_back("user");
   if (assistantAttention) audience.push_back("assistant");
@@ -17,7 +18,7 @@ void MCPAnnotation::pushAnnotations(bool userAttention, bool assistantAttention,
       {"prio", priority},
   };
 
-  if (!lastMod.empty()) data.emplace("lastModified", lastMod);
+  if (lastMod != Clock::time_point {}) data.emplace("lastModified", std::format("{:%FT%TZ}", lastMod));
   Annotations.emplace(std::move(data));
 }
 

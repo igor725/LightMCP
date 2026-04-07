@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 4.1)
 
 include(FetchContent)
 
-project(LightMCP VERSION 1.0 LANGUAGES CXX C)
+project(LightMCP VERSION 1.0 LANGUAGES CXX)
 
 option(LMCP_UNSAFE "Enable unsafe Lua functionality for MCP server (has no effect when compiled as library)" OFF)
 set(LMCP_LUA_VERSION "5.1" CACHE STRING "Sets the Lua interpreter version for CMake to find (has no effect when compiled as library)")
