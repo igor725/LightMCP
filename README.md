@@ -10,7 +10,11 @@ This project is only tested in [LM Studio](https://lmstudio.ai/) environment. Co
 > [!WARNING]
 > It is up to user to provide sandboxed Lua interpreter without potentially harmful functionality.
 > Using stock interpreter with untouched `os`, `io`, `ffi` libraries may lead to malicious code
-> execution by an AI model! Every script AI writes should be approved by user first.
+> execution by an AI model! The potentially harmful functionality from major Lua implementations
+> like LuaJIT and all stock Lua interpreters is hidden behind CMake option called `LMCP_UNSAFE`
+> and it's disabled by default. Even tho it is disabled, user should never assume that it's 
+> safe to let AI execute whatever code it wants to execute, especially with custom interpreters
+> I didn't take into consideration. Every script AI writes should be approved by the user first.
 
 ## Usage
 Add the application to your `mcp.json`. Here's the file example:
