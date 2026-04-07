@@ -11,6 +11,8 @@ extern "C" {
 #include <lualib.h>
 }
 
+#include "lua_safe.h"
+
 int main() {
   std::srand(std::time(nullptr));
 
@@ -33,7 +35,7 @@ int main() {
           {"title", "Lua script interpreter"},
           {"description", "This tool executes arbitrary Lua code in a user environment, ideal for math computations and string operations. "
 #ifndef LMCP_UNSAFE
-                          "For security, `os` and `io` modules are disabled to prevent system damage. "
+                          "For security, some unsafe functionality in modules like `os` and `io` was stripped to prevent the system damage. "
 #else
                           "OS-level operations like `os.execute`, `io.open`, ... are available too. "
 #endif
@@ -122,6 +124,10 @@ int main() {
               {LUA_JITLIBNAME, luaopen_jit},
 #endif
 
+#ifdef LUA_BITLIBNAME
+              {LUA_BITLIBNAME, luaopen_bit},
+#endif
+
 #ifdef LMCP_UNSAFE
               {LUA_OSLIBNAME, luaopen_os},
               {LUA_IOLIBNAME, luaopen_io},
@@ -129,6 +135,9 @@ int main() {
 #ifdef LUA_FFILIBNAME
               {LUA_FFILIBNAME, luaopen_ffi},
 #endif
+#else
+              {LUA_OSLIBNAME, luaopen_os_safe},
+              {LUA_IOLIBNAME, luaopen_io_safe},
 #endif
 
 #ifdef LMCP_UNSAFE
@@ -139,6 +148,7 @@ int main() {
               {LUA_STRLIBNAME, luaopen_string},
               {LUA_MATHLIBNAME, luaopen_math},
               {LUA_DBLIBNAME, luaopen_debug},
+
               {NULL, NULL},
           };
 

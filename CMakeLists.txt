@@ -16,9 +16,10 @@ else()
   add_executable(LightMCP
     main.cpp
     mcp_io.cpp
+    lua_safe.cpp
   )
 
-  find_package(Lua ${LMCP_LUA_VERSION} REQUIRED)
+  find_package(Lua ${LMCP_LUA_VERSION} EXACT REQUIRED)
 
   target_link_libraries(LightMCP PRIVATE ${LUA_LIBRARIES})
   target_include_directories(LightMCP PRIVATE ${LUA_INCLUDE_DIR})
