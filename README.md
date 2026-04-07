@@ -1,4 +1,6 @@
 # LightMCP
+
+[![SafeSkill 92/100](https://img.shields.io/badge/SafeSkill-92%2F100_Verified%20Safe-brightgreen)](https://safeskill.dev/scan/igor725-lightmcp)
 LightMCP is a lightweight MCP stdio-based server written in C++. This server supports very basic protocol functionality for tools creation.
 
 The example executable contains two tools:
