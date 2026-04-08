@@ -113,7 +113,7 @@ int main() {
               {"", luaopen_base},
 #endif
 
-#if LUA_VERSION_NUM > 502
+#if LUA_VERSION_NUM > 501
               {LUA_COLIBNAME, luaopen_coroutine},
 #endif
 
@@ -126,7 +126,11 @@ int main() {
 #endif
 
 #ifdef LUA_BITLIBNAME
+#if LUA_VERSION_NUM == 502
+              {LUA_BITLIBNAME, luaopen_bit32},
+#elif LUA_VERSION_NUM == 501 // Seems to be a LuaJIT, they have own bitwise op library
               {LUA_BITLIBNAME, luaopen_bit},
+#endif
 #endif
 
 #ifdef LMCP_UNSAFE
