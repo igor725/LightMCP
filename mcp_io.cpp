@@ -5,8 +5,24 @@
 #include <cassert>
 #include <format>
 #include <iostream>
+#include <regex> // TODO: Use something faster maybe?
 #include <string>
 #include <string_view>
+
+namespace {
+/**
+ * @todo Use a real third-party parser? They're usually pretty big so idk,
+ *       the json library alone is already big as hell, few times bigger
+ *       than the whole server... But it is a kind of must while URI
+ *       parser is not. Guess I'll just leave the regex here, whatever
+ */
+bool uri_check(std::string_view uri) {
+  if (uri.empty()) return false;
+  static const std::regex uri_regex(R"(^([a-zA-Z][a-zA-Z0-9+.-]*:)?(?://([a-zA-Z0-9-._~%!$&'()*+,;=:@[\]]+)?)?(/[^?#]*)?(\?[^#]*)?(#.*)?$)",
+                                    std::regex::optimize);
+  return std::regex_match(uri.begin(), uri.end(), uri_regex);
+}
+} // namespace
 
 void MCPAnnotation::pushAnnotations(bool userAttention, bool assistantAttention, float priority, Clock::time_point lastMod) {
   nlohmann::json audience = nlohmann::json::array();
@@ -28,7 +44,7 @@ void MCPAnnotation::popAnnotations() {
 }
 
 bool MCPResources::addMeta(sv uri, sv name, sv title, sv desc, sv mime, size_t size) {
-  if (uri.empty() || name.empty()) return false; // TODO: Check URI scheme validity
+  if (!uri_check(uri) || name.empty()) return false;
 
   nlohmann::json resource {
       {"uri", uri},
@@ -46,7 +62,7 @@ bool MCPResources::addMeta(sv uri, sv name, sv title, sv desc, sv mime, size_t s
 }
 
 bool MCPResources::addText(std::string_view uri, std::string_view text, std::string_view mime) {
-  if (uri.empty()) return false; // TODO: Check URI scheme validity
+  if (!uri_check(uri)) return false;
 
   nlohmann::json resource {
       {"uri", uri},
@@ -61,7 +77,7 @@ bool MCPResources::addText(std::string_view uri, std::string_view text, std::str
 }
 
 bool MCPResources::addBinary(std::string_view uri, std::span<uint8_t> data, std::string_view mime) {
-  if (uri.empty()) return false; // TODO: Check URI scheme validity
+  if (!uri_check(uri)) return false;
 
   nlohmann::json resource {
       {"uri", uri},
