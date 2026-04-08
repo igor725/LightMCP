@@ -277,6 +277,7 @@ bool MCPIO::makeStep(std::string_view input) {
                      {"resources",
                       {
                           {"listChanged", true},
+                          {"subscribe", false}, // TODO: Implement resource subscription
                       }},
                  }},
                 {"serverInfo",
@@ -406,5 +407,6 @@ void MCPIO::startLoop() {
   std::setvbuf(stdout, nullptr, _IONBF, 0);
   while (std::getline(std::cin, line)) {
     if (!makeStep(line)) break;
+    if (!std::cout.good()) break; // Validate stdout state
   }
 }
