@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach",
+      "type": "@LAUNCH_JSON_DBG_TYPE@",
+      "program": "${workspaceRoot}/build/LightMCP@LAUNCH_JSON_DBG_PRGEX@",
+      "request": "attach",@LAUNCH_JSON_DBG_ATT_ADDPR@
+      "setupCommands": [@LAUNCH_JSON_DBG_ATT_SETUP@],
+    },
+    {
+      "name": "Launch",
+      "type": "@LAUNCH_JSON_DBG_TYPE@",
+      "request": "launch",
+      "program": "${workspaceRoot}/build/LightMCP@LAUNCH_JSON_DBG_PRGEX@",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}/build/",
+      "environment": [@LAUNCH_JSON_DBG_RUN_ENVIR@],@LAUNCH_JSON_DBG_RUN_ADDPR@
+      "setupCommands": [@LAUNCH_JSON_DBG_RUN_SETUP@]
+    }
+  ]
+}

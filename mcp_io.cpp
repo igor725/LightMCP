@@ -43,51 +43,48 @@ void MCPAnnotation::popAnnotations() {
   Annotations.pop();
 }
 
-bool MCPResources::addMeta(sv uri, sv name, sv title, sv desc, sv mime, size_t size) {
-  if (!uri_check(uri) || name.empty()) return false;
-
+nlohmann::json MCPResource::generateText(bool metaOnly, std::string_view string) const {
   nlohmann::json resource {
-      {"uri", uri},
-      {"name", name},
+      {"uri", URI},
   };
+  if (!MimeType.empty()) resource["mimeType"] = MimeType;
 
-  if (!title.empty()) resource["title"] = title;
-  if (!desc.empty()) resource["description"] = desc;
-  if (!mime.empty()) resource["mimeType"] = mime;
-  if (size > 0) resource["size"] = size;
+  if (metaOnly) {
+    if (FileName.empty()) {
+      resource["name"] = URI.substr(URI.find_last_of('/') + 1);
+    } else {
+      resource["name"] = FileName;
+    }
+    if (!Title.empty()) resource["title"] = Title;
+    if (!Description.empty()) resource["description"] = Description;
+    resource["size"] = string.size();
+    return resource;
+  }
 
-  if (!Annotations.empty()) resource["annotation"] = Annotations.top();
-  Result.emplace_back(std::move(resource));
-  return true;
+  resource["text"] = string;
+  return resource;
 }
 
-bool MCPResources::addText(std::string_view uri, std::string_view text, std::string_view mime) {
-  if (!uri_check(uri)) return false;
-
+nlohmann::json MCPResource::generateBlob(bool metaOnly, std::span<uint8_t> data) const {
   nlohmann::json resource {
-      {"uri", uri},
-      {"text", text},
+      {"uri", URI},
   };
+  if (!MimeType.empty()) resource["mimeType"] = MimeType;
 
-  if (!mime.empty()) resource["mimeType"] = mime;
+  if (metaOnly) {
+    if (!Title.empty()) resource["title"] = Title;
+    if (!Description.empty()) resource["description"] = Description;
+    resource["size"] = data.size_bytes();
+    return resource;
+  }
 
-  if (!Annotations.empty()) resource["annotation"] = Annotations.top();
-  Result.emplace_back(std::move(resource));
-  return true;
+  resource["blob"] = base64::encode_into<std::string>(data.begin(), data.end());
+  return resource;
 }
 
-bool MCPResources::addBinary(std::string_view uri, std::span<uint8_t> data, std::string_view mime) {
-  if (!uri_check(uri)) return false;
-
-  nlohmann::json resource {
-      {"uri", uri},
-      {"blob", base64::encode_into<std::string>(data.begin(), data.end())},
-  };
-
-  if (!mime.empty()) resource["mimeType"] = mime;
-
+bool MCPResources::add(nlohmann::json&& resource) {
   if (!Annotations.empty()) resource["annotation"] = Annotations.top();
-  Result.emplace_back(std::move(resource));
+  Result.push_back(std::move(resource));
   return true;
 }
 
@@ -155,12 +152,14 @@ nlohmann::json MCPContent::popResult() {
 void MCPIO::sendResponse(std::optional<uint64_t> req_id, nlohmann::json const&& resp) const {
   if (!Initialized || !std::cout.good()) return;
 
-  std::cout << nlohmann::json({
-                   {"jsonrpc", "2.0"},
-                   {"id", req_id},
-                   {"result", std::move(resp)},
-               })
-            << std::endl;
+  auto const resp1 = nlohmann::json({
+                                        {"jsonrpc", "2.0"},
+                                        {"id", req_id},
+                                        {"result", std::move(resp)},
+                                    })
+                         .dump();
+
+  std::cout << resp1 << std::endl;
 }
 
 void MCPIO::sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string_view err, json const&& data) const {
@@ -240,11 +239,12 @@ bool MCPIO::unregisterTool(std::string_view name) {
   return false;
 }
 
-bool MCPIO::registerResource(std::string_view uri, rcall callback) {
+bool MCPIO::registerResource(std::string_view uri, MCPResource::cbfunc callback, std::string_view name, std::string_view title, std::string_view desc,
+                             std::string_view mime) {
   std::lock_guard const lock(Mutex);
 
   if (findResource(uri) == Resources.end()) {
-    Resources.emplace_back(std::string(uri), callback);
+    Resources.emplace_back(std::string(uri), std::string(name), std::string(title), std::string(desc), std::string(mime), callback);
     sendNotification("resources/list_changed");
     return true;
   }
@@ -356,14 +356,16 @@ bool MCPIO::makeStep(std::string_view input) {
             } else {
               sendProtocolError(respId, -32602, "Invalid params");
             }
+          } else {
+            goto unhandled_method;
           }
         } else if (method.starts_with("resources/")) {
           if (submethod == "list") {
-            MCPResources resList(true);
+            MCPResources resList;
 
             try {
               for (auto const& res: Resources) {
-                res.Callback(nullptr, resList);
+                resList.add(res.Callback(true, nullptr, res));
               }
 
               sendResponse(respId, {{"resources", resList.popResult()}});
@@ -373,14 +375,14 @@ bool MCPIO::makeStep(std::string_view input) {
           } else if (submethod == "read") {
             if (auto pit = request.find("params"); pit != request.end() && pit->is_object()) {
               if (auto uit = pit->find("uri"); uit != pit->end() && uit->is_string()) {
-                MCPResources resList(false);
+                MCPResources resList;
 
                 try {
                   bool found = false;
 
                   for (auto const& res: Resources) {
                     if (*uit == res.URI) {
-                      res.Callback(*pit, resList);
+                      resList.add(res.Callback(false, *pit, res));
                       found = true;
                       break;
                     }
@@ -396,12 +398,16 @@ bool MCPIO::makeStep(std::string_view input) {
                 }
               }
             }
+          } else {
+            goto unhandled_method;
           }
         } else if (method.starts_with("notifications/")) {
           std::cerr << ">> Notification received from client: " << method << std::endl;
           // TODO: handle notifications?
         } else if (respId.has_value()) {
+        unhandled_method:
           sendProtocolError(respId, -32602, "Unhandled MCP method");
+          std::cerr << "Unhandled MCP method: " << method << std::endl;
         }
       }
     } else {

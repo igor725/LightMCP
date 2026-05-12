@@ -26,3 +26,5 @@ else()
 
   target_compile_definitions(LightMCP PRIVATE $<$<BOOL:${LMCP_UNSAFE}>:LMCP_UNSAFE>)
 endif()
+
+include(vscode_launch.cmake)

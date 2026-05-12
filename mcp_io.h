@@ -19,23 +19,34 @@ class MCPAnnotation {
   std::stack<nlohmann::json> Annotations;
 };
 
+struct MCPResource {
+  using cbfunc = std::function<nlohmann::json(bool metaOnly, nlohmann::json const& req, MCPResource const& self)>;
+
+  std::string const URI;
+  std::string const FileName;
+  std::string const Title;
+  std::string const Description;
+  std::string const MimeType;
+  cbfunc const      Callback;
+
+  nlohmann::json generateText(bool metaOnly, std::string_view string) const;
+  nlohmann::json generateBlob(bool metaOnly, std::span<uint8_t> data) const;
+};
+
 class MCPResources: public MCPAnnotation {
+  friend class MCPIO;
   using sv = std::string_view;
 
   public:
-  MCPResources(bool metaOnly): IsMeta(metaOnly) {}
+  MCPResources() {}
 
-  inline bool isMeta() const { return IsMeta; }
-
-  bool addMeta(sv uri, sv name, sv title = {}, sv desc = {}, sv mime = {}, size_t size = 0);
-  bool addText(std::string_view uri, std::string_view text, std::string_view mime = {});
-  bool addBinary(std::string_view uri, std::span<uint8_t> data, std::string_view mime = {});
-
-  nlohmann::json popResult();
+  bool add(nlohmann::json&& resource);
 
   private:
   nlohmann::json Result = nlohmann::json::array();
-  bool           IsMeta = false;
+
+  protected:
+  nlohmann::json popResult();
 };
 
 class MCPContent: public MCPAnnotation {
@@ -60,24 +71,18 @@ class MCPIO {
   private:
   using json  = nlohmann::json;
   using tcall = std::function<void(json const& req, MCPContent& resp)>;
-  using rcall = std::function<void(json const& req, MCPResources& resp)>;
 
   struct Tool {
     json const  Info;
     tcall const Callback;
   };
 
-  struct Resource {
-    std::string const URI;
-    rcall const       Callback;
-  };
-
   bool Initialized = false;
 
   std::mutex Mutex;
 
-  std::list<Tool>     Tools     = {};
-  std::list<Resource> Resources = {};
+  std::list<Tool>        Tools     = {};
+  std::list<MCPResource> Resources = {};
 
   void sendResponse(std::optional<uint64_t> req_id, json const&& resp) const;
   void sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string_view err, json const&& data = nullptr) const;
@@ -107,7 +112,8 @@ class MCPIO {
   public:
   bool registerTool(json const&& toolDesc, tcall callback);
   bool unregisterTool(std::string_view name);
-  bool registerResource(std::string_view uri, rcall callback);
+  bool registerResource(std::string_view uri, MCPResource::cbfunc callback, std::string_view name = {}, std::string_view title = {}, std::string_view desc = {},
+                        std::string_view mime = {});
   bool unregisterResource(std::string_view uri);
 
   void startLoop();
