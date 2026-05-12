@@ -24,7 +24,7 @@ bool uri_check(std::string_view uri) {
 }
 } // namespace
 
-void MCPAnnotation::pushAnnotations(bool userAttention, bool assistantAttention, float priority, Clock::time_point lastMod) {
+nlohmann::json MCPAnnotation::createAnnotation(bool userAttention, bool assistantAttention, float priority, Clock::time_point lastMod) const {
   nlohmann::json audience = nlohmann::json::array();
   if (userAttention) audience.push_back("user");
   if (assistantAttention) audience.push_back("assistant");
@@ -35,15 +35,20 @@ void MCPAnnotation::pushAnnotations(bool userAttention, bool assistantAttention,
   };
 
   if (lastMod != Clock::time_point {}) data.emplace("lastModified", std::format("{:%FT%TZ}", lastMod));
-  Annotations.emplace(std::move(data));
+
+  return std::move(data);
 }
 
-void MCPAnnotation::popAnnotations() {
+void MCPAnnotations::pushAnnotations(nlohmann::json const&& annotation) {
+  Annotations.emplace(std::move(annotation));
+}
+
+void MCPAnnotations::popAnnotations() {
   assert(!Annotations.empty());
   Annotations.pop();
 }
 
-nlohmann::json MCPResource::generateText(bool metaOnly, std::string_view string) const {
+nlohmann::json MCPResource::generateText(bool metaOnly, std::string_view string, nlohmann::json const&& annotation) const {
   nlohmann::json resource {
       {"uri", URI},
   };
@@ -65,7 +70,7 @@ nlohmann::json MCPResource::generateText(bool metaOnly, std::string_view string)
   return resource;
 }
 
-nlohmann::json MCPResource::generateBlob(bool metaOnly, std::span<uint8_t> data) const {
+nlohmann::json MCPResource::generateBlob(bool metaOnly, std::span<uint8_t> data, nlohmann::json const&& annotation) const {
   nlohmann::json resource {
       {"uri", URI},
   };
@@ -83,13 +88,11 @@ nlohmann::json MCPResource::generateBlob(bool metaOnly, std::span<uint8_t> data)
 }
 
 bool MCPResources::add(nlohmann::json&& resource) {
-  if (!Annotations.empty()) resource["annotation"] = Annotations.top();
   Result.push_back(std::move(resource));
   return true;
 }
 
 nlohmann::json MCPResources::popResult() {
-  (std::stack<nlohmann::json> {}).swap(Annotations);
   return std::move(Result);
 }
 
@@ -244,7 +247,7 @@ bool MCPIO::registerResource(std::string_view uri, MCPResource::cbfunc callback,
   std::lock_guard const lock(Mutex);
 
   if (findResource(uri) == Resources.end()) {
-    Resources.emplace_back(std::string(uri), std::string(name), std::string(title), std::string(desc), std::string(mime), callback);
+    Resources.emplace_back(uri, name, title, desc, mime, callback);
     sendNotification("resources/list_changed");
     return true;
   }

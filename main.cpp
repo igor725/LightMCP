@@ -275,6 +275,15 @@ int main() {
         if (vmState != eComplete) resp.setErrorFlag();
       });
 
+  server.registerResource(
+      "file:///ExampleResource.txt",
+      [](bool metaOnly, nlohmann::json const& req, MCPResource const& self) -> nlohmann::json {
+        static const std::string resource = "Luke, I am your father!";
+
+        return self.generateText(metaOnly, resource);
+      },
+      {} /* Empty means "extract from URI" */, "Example Resource", "This is a example resource created by LightMCP", "plain/text");
+
   server.startLoop();
   return -1; // Should be unreachable normally
 }
