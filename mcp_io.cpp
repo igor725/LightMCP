@@ -53,6 +53,7 @@ nlohmann::json MCPResource::generateText(bool metaOnly, std::string_view string,
       {"uri", URI},
   };
   if (!MimeType.empty()) resource["mimeType"] = MimeType;
+  if (!annotation.empty()) resource["annotation"] = std::move(annotation);
 
   if (metaOnly) {
     if (FileName.empty()) {
@@ -75,6 +76,7 @@ nlohmann::json MCPResource::generateBlob(bool metaOnly, std::span<uint8_t> data,
       {"uri", URI},
   };
   if (!MimeType.empty()) resource["mimeType"] = MimeType;
+  if (!annotation.empty()) resource["annotation"] = std::move(annotation);
 
   if (metaOnly) {
     if (!Title.empty()) resource["title"] = Title;
