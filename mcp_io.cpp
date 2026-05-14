@@ -403,6 +403,13 @@ bool MCPIO::makeStep(std::string_view input) {
                 }
               }
             }
+          } else if (submethod.starts_with("templates/")) {
+            auto const tempSubmethod = submethod.substr(submethod.find_first_of('/') + 1);
+            if (tempSubmethod == "list") {
+              sendResponse(respId, {{"resourceTemplates", nlohmann::json::array()}});
+            } else {
+              goto unhandled_method;
+            }
           } else {
             goto unhandled_method;
           }
