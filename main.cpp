@@ -1,6 +1,8 @@
 #include "mcp_io.h"
 
+#include <ctime>
 #include <iostream>
+#include <sstream>
 
 #define TOSTR_H(SS) #SS
 #define TOSTR(SS)   TOSTR_H(SS)
@@ -13,7 +15,42 @@ extern "C" {
 
 #include "lua_safe.h"
 
-int main() {
+#define MCPIO_VM_TIMEOUT_DEF 6
+#define MCPIO_PRINT_MAX_DEF  65536
+#define MCPIO_RETURN_MAX_DEF 65536
+
+int main(int argc, char* argv[]) {
+  static uint32_t vmTimeout = MCPIO_VM_TIMEOUT_DEF, printMax = MCPIO_PRINT_MAX_DEF, retMax = MCPIO_RETURN_MAX_DEF;
+
+  std::stringstream ss;
+  for (int i = 1; i < argc; ++i) {
+    std::string_view arg = argv[i];
+    if (arg == "--") break;
+    ++i; // Skip to argument
+    if (i >= argc) goto usage;
+    ss << argv[i];
+
+    if (arg == "--vm-timeout") {
+      ss >> vmTimeout;
+    } else if (arg == "--print-max") {
+      ss >> printMax;
+    } else if (arg == "--return-max") {
+      ss >> retMax;
+    } else {
+      goto usage;
+    }
+
+    ss.clear();
+    continue;
+  usage:
+    printf("Usage: %s [...]\n\nAvailable options:\n"
+           "  --vm-timeout <seconds> - Maximum Lua script execution duration in seconeds (default: %u)\n"
+           "  --print-max <bytes> - Maximum bytes in Lua tool \"prints\" output field (default: %u)\n"
+           "  --return-max <bytes> - Maximum bytes in Lua tool \"returned\" output field (default: %u)\n",
+           argv[0], MCPIO_VM_TIMEOUT_DEF, MCPIO_PRINT_MAX_DEF, MCPIO_RETURN_MAX_DEF);
+    return 0;
+  }
+
   std::srand(std::time(nullptr));
 
   std::cerr << "Starting a MCP server" << std::endl;
@@ -34,6 +71,7 @@ int main() {
           {"name", "run_lua"},
           {"title", "Lua script interpreter"},
           {"description", "This tool executes arbitrary Lua code in a user environment, ideal for math computations and string operations. "
+                          "The script runtime duration is limited to prevent infinite loops. "
 #ifndef LMCP_UNSAFE
                           "For security, some unsafe functionality in modules like `os` and `io` was stripped to prevent the system damage. "
                           "Using harmless functions like os.time(), os.date() etc is allowed and encouraged if they are needed for a task you solving. "
@@ -187,7 +225,7 @@ int main() {
             lua_getfield(L, LUA_REGISTRYINDEX, "_cxxprint");
             auto _o = reinterpret_cast<std::string*>(lua_touserdata(L, -1));
             lua_pop(L, 1);
-            if (_o->length() > 5000) return luaL_error(L, "Print buffer is too long");
+            if (_o->length() > printMax) return luaL_error(L, "Print buffer is longer than %d bytes", printMax);
 
 #if LUA_VERSION_NUM < 502
             lua_getglobal(L, "tostring");
@@ -223,10 +261,24 @@ int main() {
             if (auto const loadErr = luaL_loadstring(L, code->get_ref<std::string const&>().c_str()); loadErr == 0) {
               vmState |= eCodeCompiled;
 
+              static clock_t scr_start;
+
+              scr_start = clock();
+              lua_sethook(
+                  L,
+                  [](lua_State* L, lua_Debug* ar) {
+                    if ((clock() - scr_start) > (vmTimeout * CLOCKS_PER_SEC)) {
+                      luaL_error(L, "VM timeout, script execution took more than %d seconds", vmTimeout);
+                    }
+                  },
+                  LUA_MASKCOUNT, 10000);
+
               if (auto const execError = lua_pcall(L, 0, LUA_MULTRET, 0); execError == 0) {
                 vmState |= eCodeExecuted;
                 nResults = lua_gettop(L) - preCall;
               }
+
+              lua_sethook(L, NULL, 0, 0);
             }
           } else {
             retString = "Failed to initialize LuaVM: Out of memory!";
@@ -238,9 +290,9 @@ int main() {
         if ((vmState & eInitialized) == eInitialized) {
           if ((nResults == 1 && !lua_isnoneornil(L, -1)) || nResults > 1) {
             for (int32_t i = 1; i <= nResults; ++i) {
-              if (retString.length() >= 256) {
+              if (retString.length() >= retMax) {
               rs_trunc:
-                retString.append("[return statement is truncated, it's longer than 256 bytes]");
+                retString.append("[WARNING! return statement is truncated, it's longer than " + std::to_string(retMax) + " bytes]");
                 break;
               }
 
@@ -252,7 +304,7 @@ int main() {
               luaL_tolstring(L, i, nullptr);
 #endif
               auto const str = std::string_view(lua_tostring(L, -1));
-              if ((retString.length() + str.length()) > 256) {
+              if ((retString.length() + str.length()) > retMax) {
                 lua_pop(L, 1);
                 goto rs_trunc;
               }
