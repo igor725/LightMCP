@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
   for (int i = 1; i < argc; ++i) {
     std::string_view arg = argv[i];
     if (arg == "--") break;
-    ++i; // Skip to argument
+    ++i; // Skip to argument value
     if (i >= argc) goto usage;
     ss << argv[i];
 
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
     continue;
   usage:
     printf("Usage: %s [...]\n\nAvailable options:\n"
-           "  --vm-timeout <seconds> - Maximum Lua script execution duration in seconeds (default: %u)\n"
+           "  --vm-timeout <seconds> - Maximum Lua script execution duration in seconds (default: %u)\n"
            "  --print-max <bytes> - Maximum bytes in Lua tool \"prints\" output field (default: %u)\n"
            "  --return-max <bytes> - Maximum bytes in Lua tool \"returned\" output field (default: %u)\n",
            argv[0], MCPIO_VM_TIMEOUT_DEF, MCPIO_PRINT_MAX_DEF, MCPIO_RETURN_MAX_DEF);

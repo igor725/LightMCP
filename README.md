@@ -1,5 +1,5 @@
 # LightMCP
-LightMCP is a lightweight MCP stdio-based server written in C++. This server supports very basic protocol functionality for tools creation.
+LightMCP is a lightweight multiplatform MCP stdio-based server written in C++. This server supports very basic protocol functionality for tools/resources creation.
 
 The example executable contains two tools:
 * Arbitrary Lua script execution
@@ -22,11 +22,18 @@ Add the application to your `mcp.json`. Here's the file example:
 {
   "mcpServers": {
     "LightMCP": {
-      "command": "D:/LightMCP/build/LightMCP.exe"
+      "command": "D:/LightMCP/build/LightMCP.exe",
+      "args": [
+        "--vm-timeout", "2",
+        "--print-max", "5000",
+        "--return-max", "5000"
+      ]
     }
   }
 }
 ```
+
+Use `./LightMCP.exe --help` to get the list of available arguments and their description.
 
 ## License
 This project is licensed under MIT license.
