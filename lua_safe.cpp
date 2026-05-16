@@ -1,4 +1,4 @@
-#include "lua_safe.h"
+#include "lua_safe.hh"
 
 #include <cstring>
 

@@ -1,4 +1,4 @@
-#include "mcp_io.h"
+#include "mcp_io.hh"
 
 #include <ctime>
 #include <iostream>
@@ -13,7 +13,7 @@ extern "C" {
 #include <lualib.h>
 }
 
-#include "lua_safe.h"
+#include "lua_safe.hh"
 
 #define MCPIO_VM_TIMEOUT_DEF 6
 #define MCPIO_PRINT_MAX_DEF  65536
@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
       {
           {"name", "get_random_integer"},
           {"title", "Random Integer"},
-          {"description", "This tool returns a random decimal integer value e.g. 0, 95, 322, 666. Value range is: [0x0, " TOSTR(RAND_MAX) "]."},
+          {"description", "This tool returns a random decimal integer value e.g. 0, 95, 322, 666. Value range is: [0, " TOSTR(RAND_MAX) "]."},
           {"inputSchema", {{"type", "object"}, {"additionalProperties", false}}},
       },
       [](nlohmann::json const& req, MCPContent& resp) { resp.addText(std::to_string(std::rand())); });
