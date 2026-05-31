@@ -43,6 +43,9 @@ class Search: public ISearch {
     auto prjName = req.find("project");
     auto query   = req.find("query");
 
+    auto const minScore   = req.value<double>("minScore", 0.0);
+    auto const maxResults = req.value<uint64_t>("maxResults", 0);
+
     nlohmann::json result = {{"results", nlohmann::json::array()}};
 
     if (prjName == req.end() || query == req.end()) {
@@ -64,13 +67,18 @@ class Search: public ISearch {
     auto& resArray = result["results"];
     auto& queryStr = query->get_ref<std::string const&>();
     for (auto const& [file, title]: prjFiles->second) {
+      if (maxResults > 0 && resArray.size() >= maxResults) break;
       auto const score = (rapidfuzz::fuzz::ratio(title, queryStr) + rapidfuzz::fuzz::ratio(file, queryStr)) / 2.0;
-      if (score > 40.0) {
-        resArray.emplace_back(nlohmann::json::object({
+      if (score >= minScore) {
+        nlohmann::json const newItem {
             {"title", title},
             {"filename", file},
             {"score", score},
-        }));
+        };
+
+        resArray.insert(
+            std::upper_bound(resArray.begin(), resArray.end(), newItem, [](auto& a, auto& b) -> bool { return a.value("score", 0.0) > b.value("score", 0.0); }),
+            std::move(newItem));
       }
     }
 

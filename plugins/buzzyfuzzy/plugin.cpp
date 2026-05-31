@@ -54,8 +54,26 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                {"type", "object"},
                {"properties",
                 {
-                    {"project", {{"type", "string"}}},
-                    {"query", {{"type", "string"}}},
+                    {"project",
+                     {
+                         {"type", "string"},
+                         {"description", "The project name received from `aidoc_prj_list` tool"},
+                     }},
+                    {"query",
+                     {
+                         {"type", "string"},
+                         {"description", "Your search queryto the project"},
+                     }},
+                    {"minScore",
+                     {
+                         {"type", "number"},
+                         {"description", "Minimal fuzzy search matching ration, default value is 40.0"},
+                     }},
+                    {"maxResults",
+                     {
+                         {"type", "number"},
+                         {"description", "Maximum results to output, default is `-1` (unlimited)"},
+                     }},
                 }},
                {"required", nlohmann::json::array({"project", "query"})},
                {"additionalProperties", false},
@@ -87,8 +105,8 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                                       {"score",
                                        {
                                            {"type", "number"},
-                                           {"minimum", 20},
-                                           {"maximum", 100},
+                                           {"minimum", 0.0},
+                                           {"maximum", 100.0},
                                            {"description", "The fuzzy matching score for this entry."},
                                        }},
                                   }},
