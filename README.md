@@ -1,9 +1,10 @@
 # LightMCP
 LightMCP is a lightweight multiplatform MCP stdio-based server written in C++. This server supports very basic protocol functionality for tools/resources creation.
 
-The example executable contains two tools:
-* Arbitrary Lua script execution
-* Random number generation
+The example executable has no tools by default. There's a plugin system and 2 built-in plugins:
+* `lua` - Arbitrary Lua script execution (enabled by default)
+* `example` - Random number generation + simple resource (disabled by default)
+* `buzzyfuzzy` - Fuzzy search through decompiled CHM file using [chm-converter](https://github.com/DTDucas/chm-converter) (disabled by default)
 
 This project is only tested in [LM Studio](https://lmstudio.ai/) and [llama.cpp](https://github.com/ggml-org/llama.cpp) environments. Compatibility with other clients is not guaranteed. If you encounter any error, you're welcome to report it in issues.
 

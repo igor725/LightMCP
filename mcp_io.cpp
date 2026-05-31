@@ -5,6 +5,8 @@
 #include <cassert>
 #include <format>
 #include <iostream>
+#include <list>
+#include <mutex>
 #include <regex> // TODO: Use something faster maybe?
 #include <string>
 #include <string_view>
@@ -23,6 +25,58 @@ bool uri_check(std::string_view uri) {
   return std::regex_match(uri.begin(), uri.end(), uri_regex);
 }
 } // namespace
+
+class MCPIO: public IMCPIO {
+  private:
+  using json  = IMCPIO::json;
+  using tcall = IMCPIO::tcall;
+
+  struct Tool {
+    json const  Info;
+    tcall const Callback;
+  };
+
+  bool Initialized = false;
+
+  std::mutex Mutex;
+
+  std::list<Tool>        Tools     = {};
+  std::list<MCPResource> Resources = {};
+
+  void sendResponse(std::optional<uint64_t> req_id, json const&& resp) const;
+  void sendProtocolError(std::optional<uint64_t> req_id, int32_t code, std::string_view err, json const&& data = nullptr) const;
+  void sendError(std::optional<uint64_t> req_id, std::string_view err) const;
+  void sendNotification(std::string_view noti) const;
+
+  auto findTool(std::string_view toolName) {
+    auto it = Tools.begin();
+    for (; it != Tools.end(); ++it) {
+      if (it->Info["name"].get_ref<std::string const&>() == toolName) break;
+    }
+
+    return it;
+  }
+
+  auto findResource(std::string_view resURI) {
+    auto it = Resources.begin();
+    for (; it != Resources.end(); ++it) {
+      if (it->URI == resURI) break;
+    }
+
+    return it;
+  }
+
+  bool makeStep(std::string_view input);
+
+  public:
+  bool registerTool(json const&& toolDesc, tcall callback);
+  bool unregisterTool(std::string_view name);
+  bool registerResource(std::string_view uri, MCPResource::cbfunc callback, std::string_view name = {}, std::string_view title = {}, std::string_view desc = {},
+                        std::string_view mime = {});
+  bool unregisterResource(std::string_view uri);
+
+  void startLoop();
+};
 
 nlohmann::json MCPAnnotation::createAnnotation(bool userAttention, bool assistantAttention, float priority, Clock::time_point lastMod) const {
   nlohmann::json audience = nlohmann::json::array();
@@ -348,9 +402,9 @@ bool MCPIO::makeStep(std::string_view input) {
                   return true;
                 } else {
                   try {
-                    MCPContent content;
+                    auto content = std::make_shared<MCPContent>();
                     tool->Callback(*ait, content);
-                    sendResponse(respId, content.popResult());
+                    sendResponse(respId, content->popResult());
                   } catch (std::exception const& ex) {
                     sendError(respId, "Tool exception: " + std::string(ex.what()));
                   }
@@ -443,4 +497,8 @@ void MCPIO::startLoop() {
     if (!makeStep(line)) break;
     if (!std::cout.good()) break; // Validate stdout state
   }
+}
+
+std::shared_ptr<IMCPIO> createMCPServer() {
+  return std::make_shared<MCPIO>();
 }

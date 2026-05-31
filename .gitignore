@@ -1,2 +1,6 @@
 build/*
+plugins/*
+!plugins/example
+!plugins/lua
+!plugins/buzzyfuzzy
 .vscode/launch.json
