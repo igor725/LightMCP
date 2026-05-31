@@ -402,9 +402,9 @@ bool MCPIO::makeStep(std::string_view input) {
                   return true;
                 } else {
                   try {
-                    auto content = std::make_shared<MCPContent>();
+                    MCPContent content;
                     tool->Callback(*ait, content);
-                    sendResponse(respId, content->popResult());
+                    sendResponse(respId, content.popResult());
                   } catch (std::exception const& ex) {
                     sendError(respId, "Tool exception: " + std::string(ex.what()));
                   }

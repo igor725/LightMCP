@@ -42,7 +42,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                {"additionalProperties", false},
            }},
       },
-      [](nlohmann::json const& req, std::shared_ptr<MCPContent> resp) { resp->addStructured(searcher->getList()); });
+      [](nlohmann::json const& req, MCPContent& resp) { resp.addStructured(searcher->getList()); });
 
   server->registerTool(
       {
@@ -107,7 +107,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                {"required", nlohmann::json::array({"results"})},
            }},
       },
-      [](nlohmann::json const& req, std::shared_ptr<MCPContent> resp) { resp->addStructured(searcher->searchFuzzy(req)); });
+      [](nlohmann::json const& req, MCPContent& resp) { resp.addStructured(searcher->searchFuzzy(req)); });
 
   server->registerTool(
       {
@@ -127,7 +127,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                {"additionalProperties", false},
            }},
       },
-      [](nlohmann::json const& req, std::shared_ptr<MCPContent> resp) { resp->addStructured(searcher->openFile(req)); });
+      [](nlohmann::json const& req, MCPContent& resp) { resp.addStructured(searcher->openFile(req)); });
 }
 
 void LMCP_PrintUsage(std::ostream& out) {

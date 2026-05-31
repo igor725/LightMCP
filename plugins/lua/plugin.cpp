@@ -88,7 +88,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
               },
           },
       },
-      [](nlohmann::json const& req, std::shared_ptr<MCPContent> resp) {
+      [](nlohmann::json const& req, MCPContent& resp) {
         enum VMState {
           eNone,
           eRequestParsed = 1 << 0,
@@ -281,13 +281,13 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
         }
         lua_close(L);
 
-        resp->addStructured({
+        resp.addStructured({
             {"stage", vmState},
             {"returned", retString},
             {"prints", printString},
         });
 
-        if (vmState != eComplete) resp->setErrorFlag();
+        if (vmState != eComplete) resp.setErrorFlag();
       });
 }
 

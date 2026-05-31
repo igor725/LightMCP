@@ -75,7 +75,7 @@ class MCPContent: public MCPAnnotations {
 class IMCPIO {
   protected:
   using json  = nlohmann::json;
-  using tcall = std::function<void(json const& req, std::shared_ptr<MCPContent> resp)>;
+  using tcall = std::function<void(json const& req, MCPContent& resp)>;
 
   public:
   virtual bool registerTool(json const&& toolDesc, tcall callback)                      = 0;
