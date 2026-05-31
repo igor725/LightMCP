@@ -67,7 +67,6 @@ class Search: public ISearch {
     auto& resArray = result["results"];
     auto& queryStr = query->get_ref<std::string const&>();
     for (auto const& [file, title]: prjFiles->second) {
-      if (maxResults > 0 && resArray.size() >= maxResults) break;
       auto const score = (rapidfuzz::fuzz::ratio(title, queryStr) + rapidfuzz::fuzz::ratio(file, queryStr)) / 2.0;
       if (score >= minScore) {
         nlohmann::json const newItem {
@@ -76,9 +75,14 @@ class Search: public ISearch {
             {"score", score},
         };
 
-        resArray.insert(
-            std::upper_bound(resArray.begin(), resArray.end(), newItem, [](auto& a, auto& b) -> bool { return a.value("score", 0.0) > b.value("score", 0.0); }),
-            std::move(newItem));
+        auto insertPoint =
+            std::upper_bound(resArray.begin(), resArray.end(), newItem, [](auto& a, auto& b) -> bool { return a.value("score", 0.0) > b.value("score", 0.0); });
+
+        if (maxResults > 0 && resArray.size() >= maxResults) {
+          if (insertPoint == resArray.end()) continue;
+          resArray.erase(resArray.end() - 1);
+        }
+        resArray.insert(insertPoint, std::move(newItem));
       }
     }
 
