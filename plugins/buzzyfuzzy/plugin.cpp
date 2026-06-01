@@ -67,7 +67,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                     {"minScore",
                      {
                          {"type", "number"},
-                         {"description", "Minimal fuzzy search matching ration, default value is 40.0"},
+                         {"description", "Minimal fuzzy search matching ration, default value is 30.0"},
                      }},
                     {"maxResults",
                      {

@@ -43,7 +43,7 @@ class Search: public ISearch {
     auto prjName = req.find("project");
     auto query   = req.find("query");
 
-    auto const minScore   = req.value<double>("minScore", 0.0);
+    auto const minScore   = req.value<double>("minScore", 30.0);
     auto const maxResults = req.value<uint64_t>("maxResults", 0);
 
     nlohmann::json result = {{"results", nlohmann::json::array()}};
