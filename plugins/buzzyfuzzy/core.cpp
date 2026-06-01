@@ -67,7 +67,7 @@ class Search: public ISearch {
     auto& resArray = result["results"];
     auto& queryStr = query->get_ref<std::string const&>();
     for (auto const& [file, title]: prjFiles->second) {
-      auto const score = (rapidfuzz::fuzz::ratio(title, queryStr) + rapidfuzz::fuzz::ratio(file, queryStr)) / 2.0;
+      auto const score = rapidfuzz::fuzz::ratio(title, queryStr);
       if (score >= minScore) {
         nlohmann::json const newItem {
             {"title", title},
@@ -83,6 +83,45 @@ class Search: public ISearch {
           resArray.erase(resArray.end() - 1);
         }
         resArray.insert(insertPoint, std::move(newItem));
+      }
+    }
+
+    return std::move(result);
+  }
+
+  nlohmann::json searchSubstring(nlohmann::json const& req) const {
+    auto prjName = req.find("project");
+    auto query   = req.find("query");
+
+    auto const maxResults = req.value<uint64_t>("maxResults", 0);
+
+    nlohmann::json result = {{"results", nlohmann::json::array()}};
+
+    if (prjName == req.end() || query == req.end()) {
+      result["error"] = "One of required parameters is missing";
+      return std::move(result);
+    }
+
+    if (!prjName->is_string() || !query->is_string()) {
+      result["error"] = "Both parameters should be strings";
+      return std::move(result);
+    }
+
+    auto prjFiles = List.find(prjName->get_ref<std::string const&>());
+    if (prjFiles == List.end()) {
+      result["error"] = "Specified project not found";
+      return std::move(result);
+    }
+
+    auto& resArray = result["results"];
+    auto& queryStr = query->get_ref<std::string const&>();
+    for (auto const& [file, title]: prjFiles->second) {
+      if (resArray.size() >= maxResults) break;
+      if (title.find(queryStr) != std::string::npos) {
+        resArray.emplace_back(nlohmann::json {
+            {"title", title},
+            {"filename", file},
+        });
       }
     }
 

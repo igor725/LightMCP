@@ -129,6 +129,77 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
 
   server->registerTool(
       {
+          {"name", "aidoc_prj_contains"},
+          {"title", "Substring AIDoc Search"},
+          {"description", "Case-depended substring search through AIDoc project's table of contents."},
+          {"inputSchema",
+           {
+               {"type", "object"},
+               {"properties",
+                {
+                    {"project",
+                     {
+                         {"type", "string"},
+                         {"description", "The project name received from `aidoc_prj_list` tool"},
+                     }},
+                    {"query",
+                     {
+                         {"type", "string"},
+                         {"description", "Your search queryto the project"},
+                     }},
+                    {"maxResults",
+                     {
+                         {"type", "number"},
+                         {"description", "Maximum results to output, default is `0` (unlimited)"},
+                     }},
+                }},
+               {"required", nlohmann::json::array({"project", "query"})},
+               {"additionalProperties", false},
+           }},
+          {"outputSchema",
+           {
+               {"type", "object"},
+               {
+                   "properties",
+                   {
+                       {"results",
+                        {
+                            {"type", "array"},
+                            {"items",
+                             {
+                                 {"type", "object"},
+                                 {"properties",
+                                  {
+                                      {"title",
+                                       {
+                                           {"type", "string"},
+                                           {"description", "The title that was matched against the query."},
+                                       }},
+                                      {"filename",
+                                       {
+                                           {"type", "string"},
+                                           {"description", "The file path that can be used with the tool `aidoc_file_open`."},
+                                       }},
+                                  }},
+                                 {"additionalProperties", false},
+                             }},
+                        }
+
+                       },
+                       {"error",
+                        {
+                            {"type", "string"},
+                            {"description", "Returns an error (if any)"},
+                        }},
+                   },
+               },
+               {"required", nlohmann::json::array({"results"})},
+           }},
+      },
+      [](nlohmann::json const& req, MCPContent& resp) { resp.addStructured(searcher->searchSubstring(req)); });
+
+  server->registerTool(
+      {
           {"name", "aidoc_file_open"},
           {"title", "Open AIDoc file"},
           {"description", "Get the contents of AIDoc file. Links in markdown files (if any) can be used by this tool, but links should never be reported to "

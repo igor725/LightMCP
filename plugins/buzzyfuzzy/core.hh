@@ -10,9 +10,10 @@ class ISearch {
   ISearch()          = default;
   virtual ~ISearch() = default;
 
-  virtual nlohmann::json getList() const                              = 0;
-  virtual nlohmann::json searchFuzzy(nlohmann::json const& req) const = 0;
-  virtual nlohmann::json openFile(nlohmann::json const& req) const    = 0;
+  virtual nlohmann::json getList() const                                  = 0;
+  virtual nlohmann::json searchFuzzy(nlohmann::json const& req) const     = 0;
+  virtual nlohmann::json searchSubstring(nlohmann::json const& req) const = 0;
+  virtual nlohmann::json openFile(nlohmann::json const& req) const        = 0;
 };
 
 std::unique_ptr<ISearch> createSearch(std::filesystem::path const& path);
