@@ -72,7 +72,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                     {"maxResults",
                      {
                          {"type", "number"},
-                         {"description", "Maximum results to output, default is `-1` (unlimited)"},
+                         {"description", "Maximum results to output, default is `0` (unlimited)"},
                      }},
                 }},
                {"required", nlohmann::json::array({"project", "query"})},
