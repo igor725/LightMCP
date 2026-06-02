@@ -212,7 +212,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
       {
           {"name", "aidoc_file_open"},
           {"title", "Open File"},
-          {"description", "Get file contents. For relative paths, prepend parent directory. Do not report links to user."},
+          {"description", "Get file contents. For relative paths, prepend parent directory. Do not report markdown file links to user."},
           {"inputSchema",
            {
                {"type", "object"},
@@ -247,9 +247,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                         {
                             {"type", "string"},
                             {"description", "File contents."},
-                        }
-
-                       },
+                        }},
                        {"error",
                         {
                             {"type", "string"},
@@ -257,7 +255,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                         }},
                    },
                },
-               {"required", nlohmann::json::array({"contents"})},
+               {"additionalProperties", false},
            }},
       },
       [](nlohmann::json const& req, MCPContent& resp) { resp.addStructured(searcher->openFile(req)); });

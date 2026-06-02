@@ -153,7 +153,7 @@ class Search: public ISearch {
     auto fileName = req.find("filename");
     auto filters  = req.find("filter");
 
-    nlohmann::json result = {{"contents", nullptr}};
+    nlohmann::json result = {};
 
     if (prjName == req.end() || fileName == req.end()) {
       result["error"] = "One of required parameters is missing";
