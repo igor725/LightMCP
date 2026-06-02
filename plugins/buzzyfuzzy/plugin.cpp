@@ -24,7 +24,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
       {
           {"name", "aidoc_prj_list"},
           {"title", "List Projects"},
-          {"description", "Lists all AIDoc projects."},
+          {"description", "Lists all AIDoc projects. In case of AIDoc lookup, always use this tool first to match user's request to exact project name."},
           {"inputSchema", {{"type", "object"}, {"additionalProperties", false}}},
           {"outputSchema",
            {
@@ -67,7 +67,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                     {"minScore",
                      {
                          {"type", "number"},
-                         {"description", "Minimum match ratio (default 30.0)."},
+                         {"description", "Minimum match ratio (default 30.0), try lowering it if results are not satisfying or absent."},
                      }},
                     {"maxResults",
                      {
@@ -135,7 +135,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
   server->registerTool(
       {
           {"name", "aidoc_prj_contains"},
-          {"title", "Substring Search"},
+          {"title", "Exact Substring Search"},
           {"description", "Case-sensitive substring search project TOC."},
           {"inputSchema",
            {
