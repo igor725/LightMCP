@@ -131,6 +131,7 @@ class Search: public ISearch {
   nlohmann::json openFile(nlohmann::json const& req) const {
     auto prjName  = req.find("project");
     auto fileName = req.find("filename");
+    auto filters  = req.find("filter");
 
     nlohmann::json result = {{"contents", nullptr}};
 
@@ -144,6 +145,11 @@ class Search: public ISearch {
       return std::move(result);
     }
 
+    if (filters != req.end() && !filters->is_array()) {
+      result["error"] = "The `filters` should be specified as array";
+      return std::move(result);
+    }
+
     auto& prjNameStr = prjName->get_ref<std::string const&>();
 
     auto prjFiles = List.find(prjNameStr);
@@ -152,7 +158,6 @@ class Search: public ISearch {
       return std::move(result);
     }
 
-    auto  resArray    = result["results"];
     auto& fileNameStr = fileName->get_ref<std::string const&>();
 
     if (auto file = prjFiles->second.find(fileNameStr); file != prjFiles->second.end()) {
@@ -165,8 +170,28 @@ class Search: public ISearch {
 
       std::ifstream mdFile(filePath);
       if (mdFile.is_open()) {
-        std::string contents((std::istreambuf_iterator<char>(mdFile)), std::istreambuf_iterator<char>());
-        result["contents"] = std::move(contents);
+        if (filters == req.end()) {
+          std::string contents((std::istreambuf_iterator<char>(mdFile)), std::istreambuf_iterator<char>());
+          result["contents"] = std::move(contents);
+        } else {
+          std::string contents, temp;
+
+          while (std::getline(mdFile, temp)) {
+            for (auto const& filter: *filters) {
+              if (filter.is_string()) {
+                if (temp.contains(filter.get_ref<std::string const&>())) {
+                  if (!contents.empty()) contents.push_back('\n');
+                  contents.insert(contents.end(), temp.begin(), temp.end());
+                }
+              } else {
+                result["error"] = "One of the specified filters is not a string";
+                return std::move(result);
+              }
+            }
+          }
+
+          result["contents"] = std::move(contents);
+        }
       } else {
         result["error"] = "File not found on disk";
       }

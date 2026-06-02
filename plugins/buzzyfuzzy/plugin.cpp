@@ -209,10 +209,25 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                {"type", "object"},
                {"properties",
                 {
-                    {"project", {{"type", "string"}}},
-                    {"filename", {{"type", "string"}}},
+                    {"project",
+                     {
+                         {"type", "string"},
+                         {"description", "The project name received from `aidoc_prj_list`."},
+                     }},
+                    {"filename",
+                     {
+                         {"type", "string"},
+                         {"description", "The name of the file received from either `aidoc_prj_fuzzy` or `aidoc_prj_contains`."},
+                     }},
+                    {"filter",
+                     {
+                         {"type", "array"},
+                         {"description", "Optional filter, could help for bigger files."
+                                         "If filters are specified, the tool will return only those lines that contain specified strings in filters."
+                                         "Use it only when 100% sure it won't hurt the context. (i.e. reading tables of contents)"},
+                     }},
                 }},
-               {"required", nlohmann::json::array({"project", "query"})},
+               {"required", nlohmann::json::array({"project", "filename"})},
                {"additionalProperties", false},
            }},
       },
