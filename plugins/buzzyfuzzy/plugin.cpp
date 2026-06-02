@@ -23,8 +23,8 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
   server->registerTool(
       {
           {"name", "aidoc_prj_list"},
-          {"title", "AIDoc projects list"},
-          {"description", "Returns the list of AIDoc projects."},
+          {"title", "List Projects"},
+          {"description", "Lists all AIDoc projects."},
           {"inputSchema", {{"type", "object"}, {"additionalProperties", false}}},
           {"outputSchema",
            {
@@ -47,8 +47,8 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
   server->registerTool(
       {
           {"name", "aidoc_prj_fuzzy"},
-          {"title", "Fuzzy AIDoc Search"},
-          {"description", "Fuzzy search through AIDoc project's table of contents."},
+          {"title", "Fuzzy Search"},
+          {"description", "Fuzzy search project TOC."},
           {"inputSchema",
            {
                {"type", "object"},
@@ -57,22 +57,22 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                     {"project",
                      {
                          {"type", "string"},
-                         {"description", "The project name received from `aidoc_prj_list` tool"},
+                         {"description", "Project name from `aidoc_prj_list`."},
                      }},
                     {"query",
                      {
                          {"type", "string"},
-                         {"description", "Your search queryto the project"},
+                         {"description", "Search query."},
                      }},
                     {"minScore",
                      {
                          {"type", "number"},
-                         {"description", "Minimal fuzzy search matching ration, default value is 30.0"},
+                         {"description", "Minimum match ratio (default 30.0)."},
                      }},
                     {"maxResults",
                      {
                          {"type", "number"},
-                         {"description", "Maximum results to output, default is `0` (unlimited)"},
+                         {"description", "Max results (0=unlimited)."},
                      }},
                 }},
                {"required", nlohmann::json::array({"project", "query"})},
@@ -95,24 +95,24 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                                       {"title",
                                        {
                                            {"type", "string"},
-                                           {"description", "The title that was matched against the query."},
+                                           {"description", "Matched title."},
                                        }},
                                       {"filename",
                                        {
                                            {"type", "string"},
-                                           {"description", "The file path that can be used with the tool `aidoc_file_open`."},
+                                           {"description", "File path for `aidoc_file_open`."},
                                        }},
                                       {"size",
                                        {
                                            {"type", "number"},
-                                           {"description", "The size of this file."},
+                                           {"description", "File size."},
                                        }},
                                       {"score",
                                        {
                                            {"type", "number"},
                                            {"minimum", 0.0},
                                            {"maximum", 100.0},
-                                           {"description", "The fuzzy matching score for this entry."},
+                                           {"description", "Fuzzy match score."},
                                        }},
                                   }},
                                  {"additionalProperties", false},
@@ -123,7 +123,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                        {"error",
                         {
                             {"type", "string"},
-                            {"description", "Returns an error (if any)"},
+                            {"description", "Error (if any)."},
                         }},
                    },
                },
@@ -135,8 +135,8 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
   server->registerTool(
       {
           {"name", "aidoc_prj_contains"},
-          {"title", "Substring AIDoc Search"},
-          {"description", "Case-depended substring search through AIDoc project's table of contents."},
+          {"title", "Substring Search"},
+          {"description", "Case-sensitive substring search project TOC."},
           {"inputSchema",
            {
                {"type", "object"},
@@ -145,17 +145,17 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                     {"project",
                      {
                          {"type", "string"},
-                         {"description", "The project name received from `aidoc_prj_list` tool"},
+                         {"description", "Project name from `aidoc_prj_list`."},
                      }},
                     {"query",
                      {
                          {"type", "string"},
-                         {"description", "Your search queryto the project"},
+                         {"description", "Search query."},
                      }},
                     {"maxResults",
                      {
                          {"type", "number"},
-                         {"description", "Maximum results to output, default is `0` (unlimited)"},
+                         {"description", "Max results (0=unlimited)."},
                      }},
                 }},
                {"required", nlohmann::json::array({"project", "query"})},
@@ -178,17 +178,17 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                                       {"title",
                                        {
                                            {"type", "string"},
-                                           {"description", "The title that was matched against the query."},
+                                           {"description", "Matched title."},
                                        }},
                                       {"filename",
                                        {
                                            {"type", "string"},
-                                           {"description", "The file path that can be used with the tool `aidoc_file_open`."},
+                                           {"description", "File path for `aidoc_file_open`."},
                                        }},
                                       {"size",
                                        {
                                            {"type", "number"},
-                                           {"description", "The size of this file."},
+                                           {"description", "File size."},
                                        }},
                                   }},
                                  {"additionalProperties", false},
@@ -199,7 +199,7 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                        {"error",
                         {
                             {"type", "string"},
-                            {"description", "Returns an error (if any)"},
+                            {"description", "Error (if any)."},
                         }},
                    },
                },
@@ -211,9 +211,8 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
   server->registerTool(
       {
           {"name", "aidoc_file_open"},
-          {"title", "Open AIDoc file"},
-          {"description", "Get the contents of AIDoc file. Links in markdown files (if any) can be used by this tool, but links should never be reported to "
-                          "user. Relative paths are allowed but you should preserve the parent directory and append it before the relative path."},
+          {"title", "Open File"},
+          {"description", "Get file contents. For relative paths, prepend parent directory. Do not report links to user."},
           {"inputSchema",
            {
                {"type", "object"},
@@ -222,23 +221,43 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                     {"project",
                      {
                          {"type", "string"},
-                         {"description", "The project name received from `aidoc_prj_list`."},
+                         {"description", "Project name from `aidoc_prj_list`."},
                      }},
                     {"filename",
                      {
                          {"type", "string"},
-                         {"description", "The name of the file received from either `aidoc_prj_fuzzy` or `aidoc_prj_contains`."},
+                         {"description", "Filename from fuzzy/contains search."},
                      }},
                     {"filter",
                      {
                          {"type", "array"},
-                         {"description", "Optional filter, could help for bigger files."
-                                         "If filters are specified, the tool will return only those lines that contain specified strings in filters."
-                                         "Use it only when 100% sure it won't hurt the context. (i.e. reading tables of contents)"},
+                         {"description", "Optional line filters. Returns only lines containing these strings. Use only when certain (e.g., for TOC)."},
                      }},
                 }},
                {"required", nlohmann::json::array({"project", "filename"})},
                {"additionalProperties", false},
+           }},
+          {"outputSchema",
+           {
+               {"type", "object"},
+               {
+                   "properties",
+                   {
+                       {"contents",
+                        {
+                            {"type", "string"},
+                            {"description", "File contents."},
+                        }
+
+                       },
+                       {"error",
+                        {
+                            {"type", "string"},
+                            {"description", "Error (if any)."},
+                        }},
+                   },
+               },
+               {"required", nlohmann::json::array({"contents"})},
            }},
       },
       [](nlohmann::json const& req, MCPContent& resp) { resp.addStructured(searcher->openFile(req)); });
