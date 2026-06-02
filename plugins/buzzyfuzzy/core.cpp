@@ -58,7 +58,8 @@ class Search: public ISearch {
       return std::move(result);
     }
 
-    auto prjFiles = List.find(prjName->get_ref<std::string const&>());
+    auto& prjNameStr = prjName->get_ref<std::string const&>();
+    auto  prjFiles   = List.find(prjNameStr);
     if (prjFiles == List.end()) {
       result["error"] = "Specified project not found";
       return std::move(result);
@@ -69,9 +70,14 @@ class Search: public ISearch {
     for (auto const& [file, title]: prjFiles->second) {
       auto const score = rapidfuzz::fuzz::ratio(title, queryStr);
       if (score >= minScore) {
+        size_t fileSize = 0;
+        if (auto path = getFile(prjNameStr, file); !path.empty()) {
+          fileSize = std::filesystem::file_size(path);
+        }
         nlohmann::json const newItem {
             {"title", title},
             {"filename", file},
+            {"size", fileSize},
             {"score", score},
         };
 
@@ -87,6 +93,14 @@ class Search: public ISearch {
     }
 
     return std::move(result);
+  }
+
+  std::filesystem::path getFile(std::string const& project, std::string const& file) const {
+    auto const dataDir  = Root / project / "data";
+    auto const filePath = (dataDir / file).lexically_normal();
+    if (!filePath.native().starts_with(dataDir.native())) return {};
+    if (!std::filesystem::is_regular_file(filePath)) return {};
+    return filePath;
   }
 
   nlohmann::json searchSubstring(nlohmann::json const& req) const {
@@ -107,7 +121,8 @@ class Search: public ISearch {
       return std::move(result);
     }
 
-    auto prjFiles = List.find(prjName->get_ref<std::string const&>());
+    auto& prjNameStr = prjName->get_ref<std::string const&>();
+    auto  prjFiles   = List.find(prjNameStr);
     if (prjFiles == List.end()) {
       result["error"] = "Specified project not found";
       return std::move(result);
@@ -118,9 +133,14 @@ class Search: public ISearch {
     for (auto const& [file, title]: prjFiles->second) {
       if (resArray.size() >= maxResults) break;
       if (title.find(queryStr) != std::string::npos) {
+        size_t fileSize = 0;
+        if (auto path = getFile(prjNameStr, file); !path.empty()) {
+          fileSize = std::filesystem::file_size(path);
+        }
         resArray.emplace_back(nlohmann::json {
             {"title", title},
             {"filename", file},
+            {"size", fileSize},
         });
       }
     }
@@ -161,9 +181,8 @@ class Search: public ISearch {
     auto& fileNameStr = fileName->get_ref<std::string const&>();
 
     if (auto file = prjFiles->second.find(fileNameStr); file != prjFiles->second.end()) {
-      auto const dataDir  = Root / prjNameStr / "data";
-      auto const filePath = (dataDir / fileNameStr).lexically_normal();
-      if (!filePath.native().starts_with(dataDir.native())) {
+      auto const filePath = getFile(prjNameStr, fileNameStr);
+      if (filePath.empty()) {
         result["error"] = "Can't escape project directory";
         return std::move(result);
       }

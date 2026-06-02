@@ -102,6 +102,11 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                                            {"type", "string"},
                                            {"description", "The file path that can be used with the tool `aidoc_file_open`."},
                                        }},
+                                      {"size",
+                                       {
+                                           {"type", "number"},
+                                           {"description", "The size of this file."},
+                                       }},
                                       {"score",
                                        {
                                            {"type", "number"},
@@ -179,6 +184,11 @@ void LMCP_RegisterStuff(std::shared_ptr<IMCPIO> server) {
                                        {
                                            {"type", "string"},
                                            {"description", "The file path that can be used with the tool `aidoc_file_open`."},
+                                       }},
+                                      {"size",
+                                       {
+                                           {"type", "number"},
+                                           {"description", "The size of this file."},
                                        }},
                                   }},
                                  {"additionalProperties", false},
