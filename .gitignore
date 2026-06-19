@@ -3,4 +3,5 @@ plugins/*
 !plugins/example
 !plugins/lua
 !plugins/buzzyfuzzy
+!plugins/simplemem
 .vscode/launch.json
